@@ -3,24 +3,54 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Yapper — The Speech-to-Text Engine for Chronic Yappers</title>
+    <title>Yapper — A Voice That Stays With You</title>
     <meta
       name="description"
-      content="High-performance, private, zero-server speech-to-text running directly in your browser with WebGPU Whisper and streaming agreement."
+      content="A quiet, private real-time speech-to-text companion running entirely in the warmth of your browser. Zero cloud transmission. Pure on-device intimacy."
     />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2314b8a6'><path d='M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM5 10v2a7 7 0 0 0 14 0v-2h-2v2a5 5 0 0 1-10 0v-2H5zm6 11v-2.06A7.002 7.002 0 0 0 19 12h2a9 9 0 0 1-8 8.94V23h-2v-2z'/></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23E34A3B'><circle cx='12' cy='12' r='10' fill='%231c1211'/><circle cx='12' cy='12' r='6' fill='%23E34A3B'/><circle cx='12' cy='12' r='2' fill='%23FAD2B8'/></svg>" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
+            fontFamily: {
+              serif: ['Newsreader', 'Georgia', 'serif'],
+              sans: ['Outfit', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            },
             colors: {
-              brand: {
-                primary: '#14b8a6',
-                secondary: '#0f766e',
-                dark: '#030712',
-                card: '#0f172a',
+              her: {
+                bg: '#120a09',
+                deep: '#0c0706',
+                card: '#1c1211',
+                cardHover: '#261816',
+                border: 'rgba(227, 74, 59, 0.18)',
+                borderHover: 'rgba(227, 74, 59, 0.4)',
+                crimson: '#E34A3B',
+                coral: '#F07167',
+                peach: '#FAD2B8',
+                amber: '#EBB15B',
+                sand: '#D6C2B8',
+                cream: '#FFF8F4',
+                muted: '#9E8681',
+              },
+            },
+            animation: {
+              'breathe': 'breathe 6s ease-in-out infinite',
+              'soft-pulse': 'softPulse 3s ease-in-out infinite',
+            },
+            keyframes: {
+              breathe: {
+                '0%, 100%': { transform: 'scale(1)', opacity: '0.35' },
+                '50%': { transform: 'scale(1.08)', opacity: '0.55' },
+              },
+              softPulse: {
+                '0%, 100%': { opacity: '0.8' },
+                '50%': { opacity: '1' },
               },
             },
           },
@@ -29,13 +59,21 @@
     </script>
     <style>
       body {
-        background-color: #030712;
-        color: #f8fafc;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #120a09;
+        color: #FFF8F4;
+        font-family: 'Outfit', -apple-system, sans-serif;
+        background-image: 
+          radial-gradient(ellipse 60% 50% at 50% 0%, rgba(227, 74, 59, 0.12), transparent),
+          radial-gradient(ellipse 40% 40% at 50% 60%, rgba(235, 177, 91, 0.05), transparent);
+        background-attachment: fixed;
+      }
+      ::selection {
+        background-color: #E34A3B;
+        color: #FFF8F4;
       }
     </style>
   </head>
-  <body>
+  <body class="min-h-screen selection:bg-her-crimson selection:text-her-cream">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
