@@ -29,6 +29,9 @@ export function useTalk(options: UseTalkOptions = {}) {
     totalBytes: 0,
   });
 
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
   const clientRef = useRef<TalkClient | null>(null);
 
   if (!clientRef.current) {
@@ -36,29 +39,47 @@ export function useTalk(options: UseTalkOptions = {}) {
       ...options,
       onStatusChange: (s) => {
         setStatus(s);
-        options.onStatusChange?.(s);
+        optionsRef.current.onStatusChange?.(s);
       },
       onAudioLevel: (l) => {
         setAudioLevel(l);
-        options.onAudioLevel?.(l);
+        optionsRef.current.onAudioLevel?.(l);
       },
       onInterim: (text) => {
         setInterimText(text);
-        options.onInterim?.(text);
+        optionsRef.current.onInterim?.(text);
       },
       onFinal: (text) => {
         setFinalText(text);
         setInterimText('');
-        options.onFinal?.(text);
+        optionsRef.current.onFinal?.(text);
       },
       onModelProgress: (p) => {
         setModelProgress(p);
-        options.onModelProgress?.(p);
+        optionsRef.current.onModelProgress?.(p);
       },
     });
   }
 
   const client = clientRef.current;
+
+  // Keep dynamic configuration synchronized
+  useEffect(() => {
+    client.updateOptions({
+      modelSize: options.modelSize,
+      language: options.language,
+      preferredEngine: options.preferredEngine,
+      cloudEndpoint: options.cloudEndpoint,
+      cloudHeaders: options.cloudHeaders,
+    });
+  }, [
+    client,
+    options.modelSize,
+    options.language,
+    options.preferredEngine,
+    options.cloudEndpoint,
+    options.cloudHeaders,
+  ]);
 
   const start = useCallback(async () => {
     setInterimText('');

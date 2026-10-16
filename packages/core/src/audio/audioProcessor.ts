@@ -6,6 +6,35 @@
 
 export const TARGET_SAMPLE_RATE = 16000;
 
+/** Downsample Float32Array audio from any native sample rate to 16 kHz mono PCM */
+export function downsampleTo16k(input: Float32Array, inputSampleRate: number): Float32Array {
+  if (!input || input.length === 0) return new Float32Array(0);
+  if (inputSampleRate === TARGET_SAMPLE_RATE) return input;
+  if (inputSampleRate < TARGET_SAMPLE_RATE) return input;
+
+  const ratio = inputSampleRate / TARGET_SAMPLE_RATE;
+  const newLength = Math.round(input.length / ratio);
+  const result = new Float32Array(newLength);
+
+  let offsetResult = 0;
+  let offsetInput = 0;
+
+  while (offsetResult < result.length) {
+    const nextOffsetInput = Math.round((offsetResult + 1) * ratio);
+    let sum = 0;
+    let count = 0;
+    for (let i = offsetInput; i < nextOffsetInput && i < input.length; i++) {
+      sum += input[i];
+      count++;
+    }
+    result[offsetResult] = count > 0 ? sum / count : input[offsetInput] || 0;
+    offsetResult++;
+    offsetInput = nextOffsetInput;
+  }
+
+  return result;
+}
+
 /** Decode any audio blob into 16 kHz single-channel Float32Array PCM */
 export async function decodeTo16kMono(blob: Blob): Promise<Float32Array> {
   const buffer = await blob.arrayBuffer();
@@ -14,21 +43,28 @@ export async function decodeTo16kMono(blob: Blob): Promise<Float32Array> {
   const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
   if (!AudioCtx) return new Float32Array(0);
 
-  const ctx = new AudioCtx({ sampleRate: TARGET_SAMPLE_RATE });
+  let ctx: AudioContext;
+  try {
+    ctx = new AudioCtx({ sampleRate: TARGET_SAMPLE_RATE });
+  } catch {
+    ctx = new AudioCtx();
+  }
+
   try {
     const audio = await ctx.decodeAudioData(buffer);
+    let mono: Float32Array;
     if (audio.numberOfChannels === 1) {
-      return audio.getChannelData(0);
+      mono = audio.getChannelData(0);
+    } else {
+      const left = audio.getChannelData(0);
+      const right = audio.getChannelData(1);
+      mono = new Float32Array(left.length);
+      for (let i = 0; i < left.length; i++) {
+        mono[i] = (left[i] + right[i]) / 2;
+      }
     }
-    const left = audio.getChannelData(0);
-    const right = audio.getChannelData(1);
-    const mono = new Float32Array(left.length);
-    for (let i = 0; i < left.length; i++) {
-      mono[i] = (left[i] + right[i]) / 2;
-    }
-    return mono;
-  } catch {
-    // Non-fatal: if a partial audio chunk cannot be decoded, return empty
+    return downsampleTo16k(mono, audio.sampleRate);
+  } catch (err) {
     return new Float32Array(0);
   } finally {
     ctx.close().catch(() => {});
@@ -40,17 +76,54 @@ export function calculateRms(samples: Float32Array | Uint8Array): number {
   if (!samples || samples.length === 0) return 0;
   let sum = 0;
   if (samples instanceof Float32Array) {
+    // Time domain PCM samples (-1.0 to 1.0, 0 is silence)
     for (let i = 0; i < samples.length; i++) {
       sum += samples[i] * samples[i];
     }
-    return Math.min(1, Math.sqrt(sum / samples.length) * 2.5);
+    const rms = Math.sqrt(sum / samples.length);
+    return Math.min(1, rms * 4.0);
   } else {
+    // Frequency data bins from 0 to 255 (0 = silence, 255 = maximum magnitude)
     for (let i = 0; i < samples.length; i++) {
-      const normalized = (samples[i] - 128) / 128;
-      sum += normalized * normalized;
+      sum += samples[i] * samples[i];
     }
-    return Math.min(1, Math.sqrt(sum / samples.length) * 2.0);
+    const rms = Math.sqrt(sum / samples.length) / 255;
+    return Math.min(1, rms * 3.0);
   }
+}
+
+/** Convert raw Float32Array PCM samples into a standard 16-bit 16kHz WAV Blob */
+export function float32ToWav(samples: Float32Array, sampleRate = 16000): Blob {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+
+  const writeString = (offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // Mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true); // Byte rate
+  view.setUint16(32, 2, true); // Block align
+  view.setUint16(34, 16, true); // 16 bits
+  writeString(36, 'data');
+  view.setUint32(40, samples.length * 2, true);
+
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++, offset += 2) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
 }
 
 /** Detect optimal audio mime type supported by the client browser */

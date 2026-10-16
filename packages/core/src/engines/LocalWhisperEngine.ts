@@ -22,7 +22,7 @@ const HALLUCINATION_REGEX = /^(\[.*\]|\(.*\)|thank you for watching.*|subtitles 
 type ProgressListener = (progress: LocalModelDownloadProgress) => void;
 
 export class LocalWhisperEngine {
-  private modelSize: ModelSize;
+  private _modelSize: ModelSize;
   private modelHost?: string;
   private pipeline: any = null;
   private loadingPromise: Promise<any> | null = null;
@@ -36,17 +36,21 @@ export class LocalWhisperEngine {
   };
 
   constructor(modelSize: ModelSize = 'tiny', modelHost?: string) {
-    this.modelSize = modelSize;
+    this._modelSize = modelSize;
     this.modelHost = modelHost;
     this.state.status = this.checkIsDownloaded() ? 'ready' : 'absent';
   }
 
+  public get modelSize(): ModelSize {
+    return this._modelSize;
+  }
+
   public get modelId(): string {
-    return MODEL_REGISTRY[this.modelSize].id;
+    return MODEL_REGISTRY[this._modelSize].id;
   }
 
   public get approxMb(): number {
-    return MODEL_REGISTRY[this.modelSize].approxMb;
+    return MODEL_REGISTRY[this._modelSize].approxMb;
   }
 
   public getState(): LocalModelDownloadProgress {
@@ -142,8 +146,8 @@ export class LocalWhisperEngine {
     );
   }
 
-  public async transcribe(blob: Blob, language: string = 'english'): Promise<string> {
-    const audio = await decodeTo16kMono(blob);
+  public async transcribe(input: Blob | Float32Array, language: string = 'english'): Promise<string> {
+    const audio = input instanceof Float32Array ? input : await decodeTo16kMono(input);
     // Suppress tiny blips or silence (< 0.15s of 16kHz audio)
     if (!audio || audio.length < 2400) {
       return '';

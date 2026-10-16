@@ -3,7 +3,7 @@
  * Unified TalkClient: Single entrypoint for browser, local Whisper, and cloud speech recognition.
  */
 
-import { calculateRms, getOptimalMimeType } from './audio/audioProcessor';
+import { calculateRms, getOptimalMimeType, float32ToWav, downsampleTo16k } from './audio/audioProcessor';
 import { EnergyVad } from './audio/energyVad';
 import { BrowserSpeechEngine } from './engines/BrowserSpeechEngine';
 import { CloudStreamEngine } from './engines/CloudStreamEngine';
@@ -22,7 +22,9 @@ export class TalkClient {
   private mediaStream: MediaStream | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
+  private pcmChunks: Float32Array[] = [];
   private audioContext: AudioContext | null = null;
+  private scriptProcessor: ScriptProcessorNode | null = null;
   private analyser: AnalyserNode | null = null;
   private animFrameId: number | null = null;
 
@@ -51,13 +53,24 @@ export class TalkClient {
     }
 
     this.vad = new EnergyVad({
+      silenceDurationMs: 4000,
       onSilenceDetected: () => {
-        this.stop();
+        // Handled as passive silence marker
       },
     });
 
     if (this.options.onModelProgress) {
       this.localEngine.subscribeProgress(this.options.onModelProgress);
+    }
+  }
+
+  public updateOptions(newOptions: Partial<TalkClientOptions>): void {
+    this.options = { ...this.options, ...newOptions };
+    if (newOptions.modelSize && newOptions.modelSize !== this.localEngine.modelSize) {
+      this.localEngine = new LocalWhisperEngine(newOptions.modelSize, this.options.modelHost);
+      if (this.options.onModelProgress) {
+        this.localEngine.subscribeProgress(this.options.onModelProgress);
+      }
     }
   }
 
@@ -87,6 +100,20 @@ export class TalkClient {
     this.options.onStatusChange?.(status);
   }
 
+  public getAccumulatedPcm(): Float32Array {
+    if (this.pcmChunks.length === 0) return new Float32Array(0);
+    let total = 0;
+    for (const c of this.pcmChunks) total += c.length;
+    const merged = new Float32Array(total);
+    let offset = 0;
+    for (const c of this.pcmChunks) {
+      merged.set(c, offset);
+      offset += c.length;
+    }
+    const sampleRate = this.audioContext?.sampleRate || 16000;
+    return downsampleTo16k(merged, sampleRate);
+  }
+
   /** Start recording and listening with real-time streaming */
   public async start(): Promise<TalkSession> {
     if (this.currentStatus === 'listening') {
@@ -108,39 +135,82 @@ export class TalkClient {
       throw new Error('Microphone access denied by user.');
     }
 
+    // Set up Web Audio Context (resuming if suspended by browser autoplay policy)
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (AudioCtx) {
-      this.audioContext = new AudioCtx();
+      try {
+        this.audioContext = new AudioCtx({ sampleRate: 16000 });
+      } catch {
+        this.audioContext = new AudioCtx();
+      }
+
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+      }
+
       this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = 256;
+      this.analyser.fftSize = 512;
+      this.analyser.smoothingTimeConstant = 0.5;
+
       const source = this.audioContext.createMediaStreamSource(this.mediaStream);
       source.connect(this.analyser);
+
+      // Raw PCM accumulator via ScriptProcessorNode
+      this.pcmChunks = [];
+      this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
+      this.scriptProcessor.onaudioprocess = (e) => {
+        if (this.currentStatus !== 'listening') return;
+        const channel = e.inputBuffer.getChannelData(0);
+        this.pcmChunks.push(new Float32Array(channel));
+      };
+      source.connect(this.scriptProcessor);
+
+      // Connect through a zero-gain node to destination to keep ScriptProcessor running without feedback
+      const muteGain = this.audioContext.createGain();
+      muteGain.gain.value = 0;
+      this.scriptProcessor.connect(muteGain);
+      muteGain.connect(this.audioContext.destination);
     }
 
+    // Start fallback MediaRecorder
     const mimeType = getOptimalMimeType();
-    this.mediaRecorder = new MediaRecorder(this.mediaStream, {
-      mimeType: mimeType || undefined,
-      audioBitsPerSecond: 64000,
-    });
-
-    this.audioChunks = [];
-    this.mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) this.audioChunks.push(e.data);
-    };
-    this.mediaRecorder.start(250);
+    if (mimeType && typeof MediaRecorder !== 'undefined') {
+      try {
+        this.mediaRecorder = new MediaRecorder(this.mediaStream, {
+          mimeType,
+          audioBitsPerSecond: 64000,
+        });
+        this.audioChunks = [];
+        this.mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) this.audioChunks.push(e.data);
+        };
+        this.mediaRecorder.start(250);
+      } catch {}
+    }
 
     this.agreementChunker.reset();
     this.vad.reset();
     this.setStatus('listening');
 
-    // Start audio level loop
+    // Real-time audio level loop (~60fps)
+    const timeData = new Float32Array(this.analyser?.fftSize || 512);
+    const freqData = new Uint8Array(this.analyser?.frequencyBinCount || 256);
+
     const levelLoop = () => {
-      if (!this.analyser) return;
-      const data = new Uint8Array(this.analyser.frequencyBinCount);
-      this.analyser.getByteFrequencyData(data);
-      const level = calculateRms(data);
+      if (!this.analyser || this.currentStatus !== 'listening') return;
+
+      let level = 0;
+      if (typeof this.analyser.getFloatTimeDomainData === 'function') {
+        this.analyser.getFloatTimeDomainData(timeData);
+        level = calculateRms(timeData);
+      } else {
+        this.analyser.getByteFrequencyData(freqData);
+        level = calculateRms(freqData);
+      }
+
       this.options.onAudioLevel?.(level);
       this.vad.processLevel(level);
+
       this.animFrameId = requestAnimationFrame(levelLoop);
     };
     this.animFrameId = requestAnimationFrame(levelLoop);
@@ -156,25 +226,24 @@ export class TalkClient {
         this.activeSession = null;
       }
     } else if (engine === 'local') {
-      // Periodic streaming passes using accumulated audio chunks
+      // Periodic streaming passes using direct Float32Array PCM samples
       this.streamIntervalId = setInterval(async () => {
-        if (this.isProcessingChunk || this.audioChunks.length === 0) return;
-        const currentBlob = new Blob(this.audioChunks, { type: mimeType });
-        if (currentBlob.size < 1024) return;
+        if (this.isProcessingChunk) return;
+        const pcm = this.getAccumulatedPcm();
+        if (pcm.length < 4800) return; // Need at least 0.3s of 16kHz audio
 
         this.isProcessingChunk = true;
         try {
-          const text = await this.localEngine.transcribe(currentBlob, this.options.language);
+          const text = await this.localEngine.transcribe(pcm, this.options.language);
           if (text) {
-            const { committed, interim } = this.agreementChunker.step(text);
-            const display = [committed, interim].filter(Boolean).join(' ');
-            this.options.onInterim?.(display);
+            this.options.onInterim?.(text);
           }
-        } catch {
+        } catch (err) {
+          console.warn('[yapper] interim streaming pass error:', err);
         } finally {
           this.isProcessingChunk = false;
         }
-      }, 1200);
+      }, 1000);
     }
 
     return {
@@ -196,15 +265,13 @@ export class TalkClient {
     const session = this.activeSession;
     this.activeSession = null;
 
-    let finalBlob: Blob | null = null;
+    // Get final raw PCM samples before teardown
+    const finalPcm = this.getAccumulatedPcm();
+
     if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
-      finalBlob = await new Promise((resolve) => {
-        if (!this.mediaRecorder) return resolve(null);
-        this.mediaRecorder.onstop = () => {
-          resolve(new Blob(this.audioChunks, { type: getOptimalMimeType() }));
-        };
+      try {
         this.mediaRecorder.stop();
-      });
+      } catch {}
     }
 
     this.cleanupAudio();
@@ -215,38 +282,49 @@ export class TalkClient {
     try {
       if (engine === 'browser' && session) {
         finalText = await session.stop();
-      } else if (engine === 'local' && finalBlob) {
-        finalText = await this.localEngine.transcribe(finalBlob, this.options.language);
-      } else if (engine === 'cloud' && this.cloudEngine && finalBlob) {
-        finalText = await this.cloudEngine.transcribe(finalBlob);
+      } else if (engine === 'local') {
+        if (finalPcm.length >= 2400) {
+          finalText = await this.localEngine.transcribe(finalPcm, this.options.language);
+        }
+      } else if (engine === 'cloud' && this.cloudEngine) {
+        const wavBlob = float32ToWav(finalPcm);
+        finalText = await this.cloudEngine.transcribe(wavBlob);
       }
     } catch (err: any) {
       this.setStatus('error');
       throw err;
     }
 
-    finalText = (finalText || this.agreementChunker.flush()).trim();
     this.setStatus('idle');
-    this.options.onFinal?.(finalText);
+    if (finalText) {
+      this.options.onFinal?.(finalText);
+    }
     return finalText;
   }
 
-  /** Cancel active recording and discard audio */
+  /** Cancel active recording and discard captured audio */
   public cancel(): void {
-    if (this.streamIntervalId) {
-      clearInterval(this.streamIntervalId);
-      this.streamIntervalId = null;
+    if (this.activeSession) {
+      this.activeSession.cancel();
+      this.activeSession = null;
     }
-    this.activeSession?.cancel();
-    this.activeSession = null;
     this.cleanupAudio();
     this.setStatus('idle');
   }
 
   private cleanupAudio(): void {
+    if (this.streamIntervalId) {
+      clearInterval(this.streamIntervalId);
+      this.streamIntervalId = null;
+    }
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);
       this.animFrameId = null;
+    }
+    if (this.scriptProcessor) {
+      this.scriptProcessor.onaudioprocess = null;
+      this.scriptProcessor.disconnect();
+      this.scriptProcessor = null;
     }
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach((t) => t.stop());
@@ -258,5 +336,6 @@ export class TalkClient {
     }
     this.mediaRecorder = null;
     this.audioChunks = [];
+    this.pcmChunks = [];
   }
 }
