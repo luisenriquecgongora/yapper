@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,28 +10,24 @@
     />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23E34A3B'><circle cx='12' cy='12' r='10' fill='%231c1211'/><circle cx='12' cy='12' r='6' fill='%23E34A3B'/><circle cx='12' cy='12' r='2' fill='%23FAD2B8'/></svg>" />
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23E34A3B'><circle cx='12' cy='12' r='10' fill='%23FAF5EB'/><circle cx='12' cy='12' r='6' fill='%23E34A3B'/><circle cx='12' cy='12' r='2' fill='%23FAD2B8'/></svg>" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
-        darkMode: 'class',
         theme: {
           extend: {
             fontFamily: {
               serif: ['Newsreader', 'Georgia', 'serif'],
               sans: ['Outfit', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
             },
             colors: {
-              desk: {
-                base: '#140c0b',
-                warm: '#1a100e',
-                border: 'rgba(227, 74, 59, 0.15)',
-              },
               paper: {
                 bg: '#FAF6EE',
-                card: '#F4ECE0',
-                border: 'rgba(215, 195, 175, 0.8)',
+                sheet: '#FFFDF9',
+                card: '#F3ECE0',
+                border: 'rgba(215, 195, 175, 0.75)',
                 ink: '#251C17',
                 inkLight: '#594A42',
                 inkMuted: '#8C776E',
@@ -46,8 +42,8 @@
             },
             keyframes: {
               breathe: {
-                '0%, 100%': { transform: 'scale(1)', opacity: '0.35' },
-                '50%': { transform: 'scale(1.08)', opacity: '0.55' },
+                '0%, 100%': { transform: 'scale(1)', opacity: '0.45' },
+                '50%': { transform: 'scale(1.08)', opacity: '0.7' },
               },
               softPulse: {
                 '0%, 100%': { opacity: '0.8' },
@@ -59,45 +55,48 @@
       };
     </script>
     <style>
+      /* Full-Screen Tactile Cotton Stationery Background */
       body {
-        background-color: #140c0b;
-        color: #FFF8F4;
+        background-color: #F7F3EA;
+        color: #251C17;
         font-family: 'Outfit', -apple-system, sans-serif;
         background-image: 
-          radial-gradient(ellipse 70% 60% at 50% -10%, rgba(227, 74, 59, 0.15), transparent 70%),
-          radial-gradient(ellipse 50% 50% at 50% 60%, rgba(217, 152, 59, 0.05), transparent);
+          radial-gradient(ellipse 90% 60% at 50% -10%, rgba(227, 74, 59, 0.08), transparent 70%),
+          radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.85) 0%, transparent 45%),
+          radial-gradient(circle at 90% 85%, rgba(217, 152, 59, 0.06) 0%, transparent 50%),
+          url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.045'/%3E%3C/svg%3E");
         background-attachment: fixed;
       }
 
-      /* Realistic cotton paper stationery texture */
-      .paper-stationery {
-        background-color: #FAF5EB;
+      /* Prominent Full-Height Paper Manuscript Sheet on the Right */
+      .manuscript-sheet {
+        background-color: #FFFDF9;
         background-image: 
-          radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.8) 0%, rgba(246, 238, 224, 0.5) 100%),
-          url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.045'/%3E%3C/svg%3E");
+          radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 1) 0%, rgba(250, 245, 235, 0.5) 100%),
+          url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.038'/%3E%3C/svg%3E");
         box-shadow: 
-          0 1px 3px rgba(0, 0, 0, 0.08),
-          0 12px 35px -5px rgba(25, 12, 10, 0.45),
-          0 35px 70px -15px rgba(15, 8, 5, 0.6),
-          inset 0 0 90px rgba(215, 195, 175, 0.35);
-        border: 1px solid rgba(215, 195, 175, 0.85);
+          0 1px 3px rgba(45, 25, 15, 0.05),
+          0 12px 30px -5px rgba(55, 30, 20, 0.1),
+          0 35px 70px -15px rgba(45, 20, 15, 0.08),
+          inset 0 0 80px rgba(220, 200, 180, 0.22);
+        border: 1px solid rgba(215, 195, 175, 0.75);
       }
 
-      /* Inset debossed paper card */
+      /* Inset debossed paper control card */
       .paper-card {
-        background-color: #F3ECE0;
+        background-color: #F2EBE0;
         background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.035'/%3E%3C/svg%3E");
         box-shadow: 
           inset 0 1px 2px rgba(255, 255, 255, 0.8),
-          0 2px 6px rgba(40, 25, 20, 0.06);
+          0 2px 6px rgba(40, 25, 20, 0.05);
         border: 1px solid rgba(215, 195, 175, 0.65);
       }
 
       /* Subtle ruled lines on paper */
       .paper-ruled {
         background-image: linear-gradient(rgba(215, 195, 175, 0.35) 1px, transparent 1px);
-        background-size: 100% 32px;
-        line-height: 32px;
+        background-size: 100% 34px;
+        line-height: 34px;
       }
 
       ::selection {
