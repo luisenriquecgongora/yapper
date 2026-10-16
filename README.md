@@ -1,13 +1,13 @@
 # Yapper
 
-> **Zero-Server, 100% Private Real-Time Speech-to-Text & In-Browser Whisper SDK.**  
+> **The Zero-Server, 100% Private Real-Time Speech-to-Text SDK.**  
 > *Live showcase & playground:* **[yapper.plaatoos.com](https://yapper.plaatoos.com)**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](https://opensource.org/licenses/MIT)
 [![WebGPU Accelerated](https://img.shields.io/badge/WebGPU-Hardware_Accelerated-emerald.svg)](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API)
 [![Zero Data Retention](https://img.shields.io/badge/Security-Zero_Data_Retention-blue.svg)](#security--privacy)
 
-`Yapper` is a modular, high-performance speech-to-text platform and SDK designed to run **everywhere**:
+`Yapper` is an open-source, modular speech-to-text SDK designed to run **everywhere**:
 1. **In-Browser On-Device (WebGPU / WASM)**: Runs OpenAI's Whisper model completely offline using ONNX Runtime Web and `@huggingface/transformers`. Audio never leaves the client machine.
 2. **Native Browser Speech**: Instant zero-download speech recognition via the Web Speech API (`SpeechRecognition`).
 3. **Zero Data Retention (ZDR) Cloud Gateway**: Streaming cloud proxy with support for OpenAI `gpt-4o-mini-transcribe`, Groq Whisper, and self-hosted `faster-whisper`.

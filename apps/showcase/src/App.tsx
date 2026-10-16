@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { TalkOrb } from '../../packages/react/src/TalkOrb';
-import { LocalModelCard } from '../../packages/react/src/LocalModelCard';
-import { useTalk } from '../../packages/react/src/useTalk';
-import { ModelSize } from '../../packages/core/src/types';
+import { TalkOrb, LocalModelCard, useTalk } from '@yapper/react';
+import { ModelSize } from '@yapper/core';
 
 export function App() {
   const [modelSize, setModelSize] = useState<ModelSize>('tiny');
