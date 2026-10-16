@@ -5,6 +5,7 @@ import { ModelSize } from '@yapper/core';
 export function App() {
   const [modelSize, setModelSize] = useState<ModelSize>('tiny');
   const [language, setLanguage] = useState<string>('english');
+  const [preferredEngine, setPreferredEngine] = useState<'auto' | 'local' | 'browser'>('auto');
   const [activeTab, setActiveTab] = useState<'react' | 'vanilla' | 'cloud'>('react');
   const [hasWebGpu, setHasWebGpu] = useState<boolean>(false);
 
@@ -26,7 +27,7 @@ export function App() {
     downloadModel,
     removeModel,
   } = useTalk({
-    preferredEngine: 'auto',
+    preferredEngine,
     modelSize,
     language,
   });
@@ -111,14 +112,42 @@ export function App() {
               <LocalModelCard
                 progress={modelProgress}
                 modelSize={modelSize}
-                approxMb={modelSize === 'tiny' ? 40 : modelSize === 'base' ? 75 : 245}
+                approxMb={modelSize === 'tiny' ? 28 : modelSize === 'base' ? 48 : 145}
                 onDownload={downloadModel}
                 onRemove={removeModel}
               />
 
               <div className="paper-card rounded-2xl p-4 space-y-3 text-[#594A42]">
                 <label className="text-[10px] font-mono uppercase tracking-wider text-[#8C776E] block font-semibold">
-                  Model Scale
+                  Engine Architecture
+                </label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setPreferredEngine('local')}
+                    className={`py-1.5 px-2 text-xs font-medium rounded-xl border transition-all text-center cursor-pointer ${
+                      preferredEngine === 'local' || (preferredEngine === 'auto' && modelProgress.status === 'ready')
+                        ? 'bg-[#FAF5EB] border-[#C23B22] text-[#C23B22] font-semibold shadow-sm'
+                        : 'border-[#D9CDBE] text-[#8C776E] hover:border-[#C23B22]/50 hover:text-[#251C17]'
+                    }`}
+                  >
+                    <span>✦ WebGPU (Private)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreferredEngine('browser')}
+                    className={`py-1.5 px-2 text-xs font-medium rounded-xl border transition-all text-center cursor-pointer ${
+                      preferredEngine === 'browser'
+                        ? 'bg-[#FAF5EB] border-[#C23B22] text-[#C23B22] font-semibold shadow-sm'
+                        : 'border-[#D9CDBE] text-[#8C776E] hover:border-[#C23B22]/50 hover:text-[#251C17]'
+                    }`}
+                  >
+                    <span>⚡ Native (Instant)</span>
+                  </button>
+                </div>
+
+                <label className="text-[10px] font-mono uppercase tracking-wider text-[#8C776E] block font-semibold pt-1">
+                  Model Scale (WebGPU)
                 </label>
                 <div className="grid grid-cols-3 gap-1.5">
                   {(['tiny', 'base', 'small'] as ModelSize[]).map((size) => (
@@ -160,13 +189,15 @@ export function App() {
               {/* Presence badge */}
               <div className="flex items-center gap-2">
                 <span className="text-[10px] px-3 py-0.5 rounded-full border border-[#D9CDBE] bg-[#FAF5EB] text-[#736056] font-mono uppercase tracking-wider flex items-center gap-1.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${modelProgress.status === 'ready' ? 'bg-[#D9983B]' : modelProgress.status === 'loading' ? 'bg-[#C23B22] animate-ping' : 'bg-[#8C776E]'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${modelProgress.status === 'ready' || engine === 'browser' ? 'bg-[#D9983B]' : modelProgress.status === 'loading' ? 'bg-[#C23B22] animate-ping' : 'bg-[#8C776E]'}`} />
                   Active Presence:{' '}
                   <strong className="text-[#C23B22]">
-                    {modelProgress.status === 'ready'
-                      ? 'On-Device WebGPU'
+                    {engine === 'browser'
+                      ? 'Browser Native (Instant 0ms)'
+                      : modelProgress.status === 'ready'
+                      ? 'On-Device WebGPU (Fast 4-bit)'
                       : modelProgress.status === 'loading'
-                      ? 'Awakening...'
+                      ? 'Awakening WebGPU...'
                       : engine}
                   </strong>
                 </span>

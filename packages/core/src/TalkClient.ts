@@ -256,7 +256,7 @@ export class TalkClient {
         } finally {
           this.isProcessingChunk = false;
         }
-      }, 800);
+      }, 600);
     }
 
     return {

@@ -2,15 +2,16 @@
  * @yapper/core
  * Local in-browser Whisper engine using @huggingface/transformers.
  * Hardware-accelerated via WebGPU with automatic fallback to WebAssembly (WASM).
+ * Optimized with q4 quantization, greedy decoding, and bounded token generation for maximum speed.
  */
 
 import { decodeTo16kMono } from '../audio/audioProcessor';
 import { LocalModelDownloadProgress, ModelSize } from '../types';
 
 export const MODEL_REGISTRY: Record<ModelSize, { id: string; approxMb: number }> = {
-  tiny: { id: 'onnx-community/whisper-tiny', approxMb: 40 },
-  base: { id: 'onnx-community/whisper-base', approxMb: 75 },
-  small: { id: 'onnx-community/whisper-small', approxMb: 245 },
+  tiny: { id: 'onnx-community/whisper-tiny', approxMb: 28 },
+  base: { id: 'onnx-community/whisper-base', approxMb: 48 },
+  small: { id: 'onnx-community/whisper-small', approxMb: 145 },
 };
 
 const CACHE_NAME = 'transformers-cache';
@@ -142,9 +143,10 @@ export class LocalWhisperEngine {
       let asr: any;
       try {
         if (hasGpu) {
+          // Use 4-bit quantization on both encoder and decoder for maximum throughput and minimal memory bandwidth
           asr = await (pipeline as any)('automatic-speech-recognition', this.modelId, {
             device: 'webgpu',
-            dtype: { encoder_model: 'fp16', decoder_model_merged: 'q4' },
+            dtype: { encoder_model: 'q4', decoder_model_merged: 'q4' },
             progress_callback: progressCb,
           });
         } else {
@@ -159,10 +161,10 @@ export class LocalWhisperEngine {
         });
       }
 
-      // Warm up pipeline with 0.2s silent audio to compile WebGPU WGSL shaders / WASM kernels
+      // Pre-warm pipeline with a rapid 0.1s dummy pass (1 token max) so WGSL shaders compile ahead of time
       try {
-        const dummyAudio = new Float32Array(3200);
-        await asr(dummyAudio, { task: 'transcribe' });
+        const dummyAudio = new Float32Array(1600);
+        await asr(dummyAudio, { task: 'transcribe', max_new_tokens: 1, num_beams: 1 });
       } catch (warmupErr) {
         console.warn('[yapper] Non-fatal shader warm-up notice:', warmupErr);
       }
@@ -189,14 +191,19 @@ export class LocalWhisperEngine {
 
   public async transcribe(input: Blob | Float32Array, language: string = 'english'): Promise<string> {
     const audio = input instanceof Float32Array ? input : await decodeTo16kMono(input);
-    // Suppress tiny blips or silence (< 0.15s of 16kHz audio)
-    if (!audio || audio.length < 2400) {
+    // Suppress tiny blips or silence (< 0.2s of 16kHz audio)
+    if (!audio || audio.length < 3200) {
       return '';
     }
 
     const asr = await this.load(false);
     const options: any = {
       task: 'transcribe',
+      num_beams: 1,       // Greedy decoding: 5x-10x faster than default beam search
+      max_new_tokens: 64, // Fast bounded decoding (prevents runaway autoregressive loops)
+      do_sample: false,   // Deterministic greedy pass
+      temperature: 0,
+      return_timestamps: false,
     };
     if (language) {
       options.language = language;
