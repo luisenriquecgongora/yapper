@@ -23,20 +23,21 @@
               sans: ['Outfit', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
             },
             colors: {
-              her: {
-                bg: '#120a09',
-                deep: '#0c0706',
-                card: '#1c1211',
-                cardHover: '#261816',
-                border: 'rgba(227, 74, 59, 0.18)',
-                borderHover: 'rgba(227, 74, 59, 0.4)',
-                crimson: '#E34A3B',
-                coral: '#F07167',
-                peach: '#FAD2B8',
-                amber: '#EBB15B',
-                sand: '#D6C2B8',
-                cream: '#FFF8F4',
-                muted: '#9E8681',
+              desk: {
+                base: '#140c0b',
+                warm: '#1a100e',
+                border: 'rgba(227, 74, 59, 0.15)',
+              },
+              paper: {
+                bg: '#FAF6EE',
+                card: '#F4ECE0',
+                border: 'rgba(215, 195, 175, 0.8)',
+                ink: '#251C17',
+                inkLight: '#594A42',
+                inkMuted: '#8C776E',
+                stamp: '#C23B22',
+                seal: '#E34A3B',
+                amber: '#D9983B',
               },
             },
             animation: {
@@ -59,21 +60,53 @@
     </script>
     <style>
       body {
-        background-color: #120a09;
+        background-color: #140c0b;
         color: #FFF8F4;
         font-family: 'Outfit', -apple-system, sans-serif;
         background-image: 
-          radial-gradient(ellipse 60% 50% at 50% 0%, rgba(227, 74, 59, 0.12), transparent),
-          radial-gradient(ellipse 40% 40% at 50% 60%, rgba(235, 177, 91, 0.05), transparent);
+          radial-gradient(ellipse 70% 60% at 50% -10%, rgba(227, 74, 59, 0.15), transparent 70%),
+          radial-gradient(ellipse 50% 50% at 50% 60%, rgba(217, 152, 59, 0.05), transparent);
         background-attachment: fixed;
       }
+
+      /* Realistic cotton paper stationery texture */
+      .paper-stationery {
+        background-color: #FAF5EB;
+        background-image: 
+          radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.8) 0%, rgba(246, 238, 224, 0.5) 100%),
+          url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.045'/%3E%3C/svg%3E");
+        box-shadow: 
+          0 1px 3px rgba(0, 0, 0, 0.08),
+          0 12px 35px -5px rgba(25, 12, 10, 0.45),
+          0 35px 70px -15px rgba(15, 8, 5, 0.6),
+          inset 0 0 90px rgba(215, 195, 175, 0.35);
+        border: 1px solid rgba(215, 195, 175, 0.85);
+      }
+
+      /* Inset debossed paper card */
+      .paper-card {
+        background-color: #F3ECE0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.035'/%3E%3C/svg%3E");
+        box-shadow: 
+          inset 0 1px 2px rgba(255, 255, 255, 0.8),
+          0 2px 6px rgba(40, 25, 20, 0.06);
+        border: 1px solid rgba(215, 195, 175, 0.65);
+      }
+
+      /* Subtle ruled lines on paper */
+      .paper-ruled {
+        background-image: linear-gradient(rgba(215, 195, 175, 0.35) 1px, transparent 1px);
+        background-size: 100% 32px;
+        line-height: 32px;
+      }
+
       ::selection {
-        background-color: #E34A3B;
-        color: #FFF8F4;
+        background-color: #C23B22;
+        color: #FAF5EB;
       }
     </style>
   </head>
-  <body class="min-h-screen selection:bg-her-crimson selection:text-her-cream">
+  <body class="min-h-screen">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
