@@ -30,6 +30,8 @@ export function App() {
     cancel,
     downloadModel,
     removeModel,
+    logs,
+    clearLogs,
   } = useTalk({
     preferredEngine,
     modelSize,
@@ -40,6 +42,18 @@ export function App() {
       }
     },
   });
+
+  const [showLogs, setShowLogs] = useState<boolean>(true);
+  const [logsCopied, setLogsCopied] = useState<boolean>(false);
+
+  const handleCopyLogs = () => {
+    const formatted = logs
+      .map((l) => `[${l.timestamp}] [${l.category.toUpperCase()}] [${l.level.toUpperCase()}]: ${l.message}`)
+      .join('\n');
+    navigator.clipboard.writeText(formatted || 'No logs recorded yet.');
+    setLogsCopied(true);
+    setTimeout(() => setLogsCopied(false), 2000);
+  };
 
   const handleOrbClick = () => {
     if (isListening) {
@@ -104,6 +118,19 @@ export function App() {
             <span className={`w-2 h-2 rounded-full ${hasWebGpu ? 'bg-[#D9983B] shadow-[0_0_6px_#D9983B]' : 'bg-[#C23B22]'}`} />
             {hasWebGpu ? 'WebGPU Accelerated' : 'WASM CPU Mode'}
           </span>
+          <button
+            type="button"
+            onClick={() => setShowLogs(!showLogs)}
+            className={`px-3 py-1 rounded-full border text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+              showLogs
+                ? 'bg-[#251C17] text-[#FAF5EB] border-[#251C17]'
+                : 'border-[#D7C3AF] bg-[#EFE7DC] text-[#594A42] hover:border-[#C23B22]'
+            }`}
+            title="Toggle live telemetry logs console"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-[#C23B22] animate-pulse" />
+            <span>Logs ({logs.length})</span>
+          </button>
           <a
             href="https://github.com/luisenriquecgongora/yapper"
             target="_blank"
@@ -465,6 +492,85 @@ const client = new TalkClient({
             )}
           </div>
         </section>
+
+        {/* Live Telegraph Ribbon Diagnostics & Telemetry Logs */}
+        {showLogs && (
+          <section className="paper-card rounded-2xl p-5 md:p-6 space-y-4 border border-[#D7C3AF]/80 transition-all shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#D7C3AF]/60 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#C23B22] animate-pulse" />
+                <h3 className="font-serif italic font-medium text-lg text-[#251C17]">
+                  Telegraph Ribbon — Live Engine Diagnostics & Telemetry
+                </h3>
+              </div>
+              <div className="flex items-center gap-2 text-xs font-mono">
+                <button
+                  type="button"
+                  onClick={handleCopyLogs}
+                  className="px-3 py-1 rounded-lg border border-[#D7C3AF] hover:border-[#C23B22] hover:bg-[#FAF6EE] text-[#594A42] transition-colors cursor-pointer"
+                >
+                  {logsCopied ? '✓ Copied' : 'Copy All Logs'}
+                </button>
+                <button
+                  type="button"
+                  onClick={clearLogs}
+                  className="px-3 py-1 rounded-lg border border-[#D7C3AF] hover:border-[#C23B22] hover:bg-[#FAF6EE] text-[#8C776E] hover:text-[#C23B22] transition-colors cursor-pointer"
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowLogs(false)}
+                  className="px-2.5 py-1 rounded-lg border border-[#D7C3AF] hover:border-[#C23B22] hover:bg-[#FAF6EE] text-[#8C776E] transition-colors cursor-pointer"
+                  title="Close log viewer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Log entries container */}
+            <div className="bg-[#FAF6EE] border border-[#D7C3AF]/80 rounded-xl p-4 font-mono text-xs max-h-72 overflow-y-auto space-y-1.5 select-text shadow-inner">
+              {logs.length === 0 ? (
+                <p className="text-[#8C776E] italic">Waiting for initial telemetry pulses...</p>
+              ) : (
+                logs.map((entry) => (
+                  <div key={entry.id} className="flex items-start gap-2 leading-relaxed">
+                    <span className="text-[#8C776E] shrink-0 font-light text-[11px]">{entry.timestamp}</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-semibold shrink-0 ${
+                        entry.category === 'hardware'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300/80'
+                          : entry.category === 'model'
+                          ? 'bg-purple-100 text-purple-800 border border-purple-300/80'
+                          : entry.category === 'audio'
+                          ? 'bg-blue-100 text-blue-800 border border-blue-300/80'
+                          : entry.category === 'stt'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300/80'
+                          : 'bg-stone-200 text-stone-700'
+                      }`}
+                    >
+                      {entry.category}
+                    </span>
+                    <span
+                      className={`break-all ${
+                        entry.level === 'error'
+                          ? 'text-[#C23B22] font-semibold'
+                          : entry.level === 'warn'
+                          ? 'text-[#D9983B]'
+                          : entry.level === 'debug'
+                          ? 'text-[#8C776E]'
+                          : 'text-[#251C17]'
+                      }`}
+                    >
+                      {entry.message}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
 
       </main>
 

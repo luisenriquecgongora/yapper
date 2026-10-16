@@ -1,4 +1,5 @@
 export * from './types';
+export * from './logger';
 export * from './audio/audioProcessor';
 export * from './audio/energyVad';
 export * from './streaming/agreement';

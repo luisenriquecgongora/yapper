@@ -69,7 +69,11 @@ export interface TalkClientOptions {
   onStatusChange?: (status: TalkStatus) => void;
   /** Callback fired on model download progress */
   onModelProgress?: (progress: LocalModelDownloadProgress) => void;
+  /** Optional callback fired when a structured diagnostic log event occurs */
+  onLog?: (entry: import('./logger').LogEntry) => void;
 }
+
+export type { LogEntry, LogCategory, LogLevel } from './logger';
 
 export type YapperClientOptions = TalkClientOptions;
 export type YapperSession = TalkSession;

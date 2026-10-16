@@ -6,10 +6,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   LocalModelDownloadProgress,
+  LogEntry,
   TalkClient,
   TalkClientOptions,
   TalkStatus,
   VoiceEngine,
+  logger,
 } from '@yapper/core';
 
 export interface UseTalkOptions extends TalkClientOptions {
@@ -22,12 +24,19 @@ export function useTalk(options: UseTalkOptions = {}) {
   const [audioLevel, setAudioLevel] = useState<number>(0);
   const [interimText, setInterimText] = useState<string>('');
   const [finalText, setFinalText] = useState<string>('');
+  const [logs, setLogs] = useState<LogEntry[]>(() => logger.getHistory());
   const [modelProgress, setModelProgress] = useState<LocalModelDownloadProgress>({
     status: 'absent',
     progress: 0,
     loadedBytes: 0,
     totalBytes: 0,
   });
+
+  useEffect(() => {
+    return logger.subscribe((entry) => {
+      setLogs((prev) => (prev.length > 200 ? [...prev.slice(-150), entry] : [...prev, entry]));
+    });
+  }, []);
 
   const optionsRef = useRef(options);
   optionsRef.current = options;
@@ -129,6 +138,11 @@ export function useTalk(options: UseTalkOptions = {}) {
     cancel,
     downloadModel,
     removeModel,
+    logs,
+    clearLogs: () => {
+      logger.clear();
+      setLogs([]);
+    },
   };
 }
 

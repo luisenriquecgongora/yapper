@@ -2,10 +2,11 @@
  * @yapper/core
  * Local in-browser Whisper engine using @huggingface/transformers.
  * Hardware-accelerated via WebGPU with automatic fallback to WebAssembly (WASM).
- * Optimized with q4 quantization, greedy decoding, and bounded token generation for maximum speed.
+ * Optimized with bounded greedy decoding, safe shader compilation, and backoff telemetry.
  */
 
 import { decodeTo16kMono } from '../audio/audioProcessor';
+import { logger } from '../logger';
 import { LocalModelDownloadProgress, ModelSize } from '../types';
 
 export const MODEL_REGISTRY: Record<ModelSize, { id: string; approxMb: number }> = {
@@ -28,6 +29,8 @@ export class LocalWhisperEngine {
   private pipeline: any = null;
   private loadingPromise: Promise<any> | null = null;
   private progressListeners = new Set<ProgressListener>();
+  private loadFailed: boolean = false;
+  private lastLoadError: Error | null = null;
 
   private state: LocalModelDownloadProgress = {
     status: 'absent',
@@ -40,20 +43,21 @@ export class LocalWhisperEngine {
     this._modelSize = modelSize;
     this.modelHost = modelHost;
     const isDownloaded = this.checkIsDownloaded();
-    this.state.status = isDownloaded ? 'loading' : 'absent';
+    // Maintain 'ready' if previously cached so UI stays serene
+    this.state.status = isDownloaded ? 'ready' : 'absent';
 
-    // If model was previously downloaded into Cache API, eagerly awaken in background
+    // If model was previously downloaded into Cache API, eagerly awaken in background silently
     if (isDownloaded && typeof window !== 'undefined') {
       const autoAwaken = () => {
-        this.load(false).catch((err) => {
-          console.warn('[yapper] Background auto-awakening failed:', err);
-          this.updateState({ status: 'absent' });
+        logger.info('model', `Auto-awakening cached pipeline for ${this.modelId} in background...`);
+        this.load(false, true).catch((err) => {
+          logger.warn('model', `Background pre-warm notice for ${this.modelId}:`, err?.message || err);
         });
       };
       if ('requestIdleCallback' in window) {
-        (window as any).requestIdleCallback(autoAwaken, { timeout: 1500 });
+        (window as any).requestIdleCallback(autoAwaken, { timeout: 2500 });
       } else {
-        setTimeout(autoAwaken, 200);
+        setTimeout(autoAwaken, 300);
       }
     }
   }
@@ -72,6 +76,10 @@ export class LocalWhisperEngine {
 
   public getState(): LocalModelDownloadProgress {
     return { ...this.state };
+  }
+
+  public get isFailed(): boolean {
+    return this.loadFailed;
   }
 
   public subscribeProgress(listener: ProgressListener): () => void {
@@ -102,20 +110,24 @@ export class LocalWhisperEngine {
     } catch {}
   }
 
-  public async load(isFirstDownload: boolean = false): Promise<any> {
+  public async load(isFirstDownload: boolean = false, isSilentBackground: boolean = false): Promise<any> {
     if (this.pipeline) return this.pipeline;
     if (this.loadingPromise) return this.loadingPromise;
 
-    this.updateState({
-      status: isFirstDownload ? 'downloading' : 'loading',
-      progress: 0,
-      loadedBytes: 0,
-      totalBytes: 0,
-    });
+    if (!isSilentBackground || this.state.status !== 'ready') {
+      this.updateState({
+        status: isFirstDownload ? 'downloading' : 'loading',
+        progress: 0,
+        loadedBytes: 0,
+        totalBytes: 0,
+      });
+    }
 
     const fileMap = new Map<string, { loaded: number; total: number }>();
 
     this.loadingPromise = (async () => {
+      logger.info('model', `Beginning pipeline load for ${this.modelId}...`);
+      
       // Dynamic import so transformers.js is only loaded on demand
       const { pipeline, env } = await import('@huggingface/transformers');
       env.allowLocalModels = false;
@@ -124,6 +136,32 @@ export class LocalWhisperEngine {
       }
 
       const hasGpu = typeof navigator !== 'undefined' && 'gpu' in navigator;
+      let selectedDevice = 'wasm';
+      let selectedDtype: any = 'q8';
+
+      if (hasGpu) {
+        try {
+          const adapter = await (navigator as any).gpu.requestAdapter();
+          if (adapter) {
+            selectedDevice = 'webgpu';
+            const hasFp16 = adapter.features?.has('shader-f16');
+            // Encoder uses fp16 or fp32 (q4 encoder is unsupported in WebGPU ONNX kernels)
+            // Decoder uses q4 for low memory bandwidth and fast autoregressive step
+            selectedDtype = {
+              encoder_model: hasFp16 ? 'fp16' : 'fp32',
+              decoder_model_merged: 'q4',
+            };
+            logger.info('hardware', `WebGPU adapter verified. shader-f16: ${!!hasFp16}`);
+          } else {
+            logger.warn('hardware', 'navigator.gpu present but requestAdapter returned null');
+          }
+        } catch (err: any) {
+          logger.warn('hardware', 'Error requesting WebGPU adapter, defaulting to WASM:', err?.message || err);
+        }
+      } else {
+        logger.info('hardware', 'WebGPU not detected in browser navigator. Falling back to WASM CPU.');
+      }
+
       const progressCb = (event: any) => {
         if (event?.status !== 'progress' || !event.file) return;
         fileMap.set(event.file, { loaded: event.loaded ?? 0, total: event.total ?? 0 });
@@ -133,40 +171,54 @@ export class LocalWhisperEngine {
           loaded += f.loaded;
           total += f.total;
         });
-        this.updateState({
-          loadedBytes: loaded,
-          totalBytes: total,
-          progress: total > 0 ? loaded / total : 0,
-        });
+        const fraction = total > 0 ? loaded / total : 0;
+        if (isFirstDownload || !isSilentBackground) {
+          this.updateState({
+            loadedBytes: loaded,
+            totalBytes: total,
+            progress: fraction,
+          });
+        }
       };
 
       let asr: any;
       try {
-        if (hasGpu) {
-          // Use 4-bit quantization on both encoder and decoder for maximum throughput and minimal memory bandwidth
-          asr = await (pipeline as any)('automatic-speech-recognition', this.modelId, {
-            device: 'webgpu',
-            dtype: { encoder_model: 'q4', decoder_model_merged: 'q4' },
-            progress_callback: progressCb,
-          });
-        } else {
-          throw new Error('WebGPU not supported on this device');
-        }
-      } catch (gpuErr) {
-        console.warn('[yapper] WebGPU initialization failed or unavailable, falling back to WASM:', gpuErr);
+        logger.info('model', `Initializing ASR pipeline (${selectedDevice}, dtype: ${JSON.stringify(selectedDtype)})...`);
         asr = await (pipeline as any)('automatic-speech-recognition', this.modelId, {
-          device: 'wasm',
-          dtype: 'q8',
+          device: selectedDevice,
+          dtype: selectedDtype,
           progress_callback: progressCb,
         });
+        logger.info('model', `ASR pipeline created successfully via ${selectedDevice}`);
+      } catch (primaryErr: any) {
+        logger.warn('model', `ASR initialization with ${selectedDevice} failed: ${primaryErr?.message || primaryErr}. Attempting WASM fallback...`);
+        if (selectedDevice === 'webgpu') {
+          try {
+            selectedDevice = 'wasm';
+            selectedDtype = 'q8';
+            asr = await (pipeline as any)('automatic-speech-recognition', this.modelId, {
+              device: 'wasm',
+              dtype: 'q8',
+              progress_callback: progressCb,
+            });
+            logger.info('model', 'Fallback to WASM pipeline succeeded');
+          } catch (wasmErr: any) {
+            logger.error('model', 'WASM fallback also failed:', wasmErr?.message || wasmErr);
+            throw wasmErr;
+          }
+        } else {
+          throw primaryErr;
+        }
       }
 
-      // Pre-warm pipeline with a rapid 0.1s dummy pass (1 token max) so WGSL shaders compile ahead of time
+      // Pre-warm pipeline with a rapid 0.2s dummy pass (1 token max) so WGSL shaders compile ahead of time
       try {
-        const dummyAudio = new Float32Array(1600);
+        logger.info('model', 'Pre-warming pipeline shaders with 0.2s dummy audio...');
+        const dummyAudio = new Float32Array(3200);
         await asr(dummyAudio, { task: 'transcribe', max_new_tokens: 1, num_beams: 1 });
-      } catch (warmupErr) {
-        console.warn('[yapper] Non-fatal shader warm-up notice:', warmupErr);
+        logger.info('model', 'Pipeline shaders compiled and ready in GPU memory');
+      } catch (warmupErr: any) {
+        logger.debug('model', 'Non-fatal shader warm-up notice:', warmupErr?.message || warmupErr);
       }
 
       return asr;
@@ -176,12 +228,17 @@ export class LocalWhisperEngine {
       (asr) => {
         this.pipeline = asr;
         this.loadingPromise = null;
+        this.loadFailed = false;
+        this.lastLoadError = null;
         this.setDownloadedFlag(true);
         this.updateState({ status: 'ready', progress: 1 });
         return asr;
       },
       (err) => {
         this.loadingPromise = null;
+        this.loadFailed = true;
+        this.lastLoadError = err;
+        logger.error('model', `Pipeline load failed completely: ${err?.message || err}`);
         if (isFirstDownload) this.setDownloadedFlag(false);
         this.updateState({ status: isFirstDownload ? 'error' : 'absent', progress: 0 });
         throw err;
@@ -190,13 +247,25 @@ export class LocalWhisperEngine {
   }
 
   public async transcribe(input: Blob | Float32Array, language: string = 'english'): Promise<string> {
-    const audio = input instanceof Float32Array ? input : await decodeTo16kMono(input);
-    // Suppress tiny blips or silence (< 0.2s of 16kHz audio)
-    if (!audio || audio.length < 3200) {
+    if (this.loadFailed) {
       return '';
     }
 
-    const asr = await this.load(false);
+    const audio = input instanceof Float32Array ? input : await decodeTo16kMono(input);
+    // Suppress tiny blips or silence (< 0.25s of 16kHz audio)
+    if (!audio || audio.length < 4000) {
+      return '';
+    }
+
+    let asr: any;
+    try {
+      asr = await this.load(false);
+    } catch (err) {
+      // Mark as failed so subsequent interval passes do not hammer retries
+      this.loadFailed = true;
+      return '';
+    }
+
     const options: any = {
       task: 'transcribe',
       num_beams: 1,       // Greedy decoding: 5x-10x faster than default beam search
@@ -214,17 +283,20 @@ export class LocalWhisperEngine {
       options.stride_length_s = 5;
     }
 
+    const t0 = performance.now();
     try {
       const result = await asr(audio, options);
+      const latencyMs = Math.round(performance.now() - t0);
       const raw = Array.isArray(result) ? result.map((r: any) => r.text).join(' ') : result.text;
       const clean = (raw || '').trim();
 
-      if (HALLUCINATION_REGEX.test(clean)) {
-        return '';
+      if (clean && !HALLUCINATION_REGEX.test(clean)) {
+        logger.debug('stt', `WebGPU transcribed "${clean.substring(0, 40)}..." in ${latencyMs}ms`);
+        return clean;
       }
-      return clean;
-    } catch (err) {
-      console.warn('[yapper] transcription error:', err);
+      return '';
+    } catch (err: any) {
+      logger.warn('stt', `Whisper transcription step notice: ${err?.message || err}`);
       return '';
     }
   }
@@ -232,6 +304,8 @@ export class LocalWhisperEngine {
   public async remove(): Promise<void> {
     this.pipeline = null;
     this.loadingPromise = null;
+    this.loadFailed = false;
+    this.lastLoadError = null;
     this.setDownloadedFlag(false);
     try {
       if (typeof caches !== 'undefined') {
@@ -239,5 +313,6 @@ export class LocalWhisperEngine {
       }
     } catch {}
     this.updateState({ status: 'absent', progress: 0, loadedBytes: 0, totalBytes: 0 });
+    logger.info('model', `Cache released for ${this.modelId}`);
   }
 }
