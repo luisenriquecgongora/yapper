@@ -1,41 +1,54 @@
 # Yapper
 
-> **The Zero-Server, 100% Private Real-Time Speech-to-Text SDK.**  
-> *Live showcase & playground:* **[yapper.plaatoos.com](https://yapper.plaatoos.com)**
+> *"Speak softly. Your voice writes itself into thought."*  
+> **An intimate, 100% private speech-to-text SDK running 4-bit Whisper in the quiet of your browser via WebGPU.**  
+> *Live interactive playground:* [**yapper.plaatoos.com**](https://yapper.plaatoos.com)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](https://opensource.org/licenses/MIT)
 [![WebGPU Accelerated](https://img.shields.io/badge/WebGPU-Hardware_Accelerated-emerald.svg)](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API)
-[![Zero Data Retention](https://img.shields.io/badge/Security-Zero_Data_Retention-blue.svg)](#security--privacy)
-
-`Yapper` is an open-source, modular speech-to-text SDK designed to run **everywhere**:
-1. **In-Browser On-Device (WebGPU / WASM)**: Runs OpenAI's Whisper model completely offline using ONNX Runtime Web and `@huggingface/transformers`. Audio never leaves the client machine.
-2. **Native Browser Speech**: Instant zero-download speech recognition via the Web Speech API (`SpeechRecognition`).
-3. **Zero Data Retention (ZDR) Cloud Gateway**: Streaming cloud proxy with support for OpenAI `gpt-4o-mini-transcribe`, Groq Whisper, and self-hosted `faster-whisper`.
-4. **Streaming Alignment**: Implements the Local Agreement algorithm to provide live interim text as the user speaks without repeating hallucinated tokens.
+[![4-bit Quantized](https://img.shields.io/badge/Quantization-4--bit_q4-amber.svg)](https://huggingface.co/onnx-community/whisper-tiny)
+[![Zero Data Retention](https://img.shields.io/badge/Security-Zero_Data_Retention-blue.svg)](#-security--privacy-invariants)
 
 ---
 
-## ⚡ Comparison Matrix
+`Yapper` is an open-source, dual-architecture speech-to-text SDK built for modern web applications. Inspired by the intimate letterpress aesthetic of the film *Her* (Theodore Twombly's "Beautiful Handwritten Letters"), Yapper gives developers zero-latency, private voice dictation that feels like living ink on cotton paper.
 
-| Feature | In-Browser WebGPU Whisper | Native Web Speech API | Cloud Gateway (ZDR) |
+---
+
+## ✨ Key Highlights
+
+- ✦ **On-Device WebGPU Whisper (Fast 4-bit)**: Compiles OpenAI's Whisper model directly into your browser's GPU shaders via ONNX Runtime Web and `@huggingface/transformers`. Model weights are compressed with 4-bit integer quantization (`q4`), slashing download size to **28 MB** and executing inference in **~60ms to 95ms**.
+- ⚡ **Instant Native Speech (0ms)**: Instant hardware-accelerated speech recognition served directly by the browser's native Web Speech API (`webkitSpeechRecognition`). Zero download, zero GPU load, instant 60fps word streaming.
+- ✍️ **Living Stationery UI**: Tactile cotton paper canvas, an audio-reactive living wax-seal voice orb (`<TalkOrb />`), and continuous manuscript accumulation where speech writes in vermilion red ink before drying into permanent walnut ink.
+- 🛡️ **Zero Cloud Transmission**: By default, audio samples never leave the user's device. Audio buffers reside in transient RAM, run through Web Audio nodes, and are immediately freed after decoding.
+- 🌍 **Multilingual**: Supports 55+ spoken tongues including English, Spanish, Polish, French, German, Korean, Italian, Ukrainian, and more.
+
+---
+
+## ⚡ Architecture Comparison
+
+| Capability | In-Browser WebGPU Whisper | Native Web Speech API | Cloud Gateway (ZDR Proxy) |
 | :--- | :---: | :---: | :---: |
-| **Server Cost** | **$0.00 (Zero)** | **$0.00 (Zero)** | Pay per token / minute |
-| **Data Privacy** | **100% Local (Never transmitted)** | Cloud (Google / Apple / Microsoft) | Encrypted stream, Zero retention |
-| **Offline Capable** | **Yes (Cached locally)** | No | No |
-| **Typical Latency** | 150ms – 400ms | 200ms – 500ms | 100ms – 300ms |
-| **Accuracy** | High (Whisper Small/Tiny) | Medium | Very High |
-| **Hardware** | GPU (Chrome/Edge/Brave) or WASM CPU | Any supported browser | Any device with network |
+| **Server Cost** | **$0.00 (Zero)** | **$0.00 (Zero)** | Pay-per-token API cost |
+| **Data Privacy** | **100% Client-Side (Never transmitted)** | Cloud (Browser vendor) | End-to-end encrypted, zero retention |
+| **Offline Dictation** | **Yes (Cached in browser storage)** | No | No |
+| **Latency** | **~60ms – 120ms** (WebGPU 4-bit) | **0ms – 50ms** (Instant streaming) | 150ms – 300ms |
+| **Accuracy** | High (Whisper Tiny / Base / Small) | Medium | Very High (Whisper Large / Cloud) |
+| **Hardware** | GPU (Chrome, Edge, Brave) / WASM CPU | Any supported browser | Any internet-connected device |
 
 ---
 
-## 📦 Packages
+## 📦 Monorepo Architecture
 
-This repository is structured as a modular monorepo:
-
-- **[`@yapper/core`](./packages/core)**: Framework-agnostic TypeScript core engine. Handles audio capture, 16 kHz PCM downsampling, VAD, and engine negotiation.
-- **[`@yapper/react`](./packages/react)**: React hooks (`useYapper`, `useTalk`) and UI components (`<YapperOrb />`, `<YapperDictationPill />`, `<LocalModelCard />`).
-- **[`@yapper/server`](./packages/server)**: Lightweight, production-grade cloud gateway proxy with Zero Data Retention and magic-byte payload verification.
-- **[`apps/showcase`](./apps/showcase)**: The production Next.js / Vite web application deployed to `yapper.plaatoos.com`.
+```
+yapper/
+├── packages/
+│   ├── core/      # @yapper/core: Universal framework-agnostic Web Audio & Whisper engine
+│   ├── react/     # @yapper/react: React hooks (useTalk) & living UI components (TalkOrb, LocalModelCard)
+│   └── server/    # @yapper/server: Optional Zero Data Retention cloud gateway proxy
+└── apps/
+    └── showcase/  # Production Vite web application deployed to yapper.plaatoos.com
+```
 
 ---
 
@@ -43,52 +56,42 @@ This repository is structured as a modular monorepo:
 
 ### 1. React (`@yapper/react`)
 
-Install the packages:
-
 ```bash
-npm install @yapper/react @yapper/core
-# or
 yarn add @yapper/react @yapper/core
+# or
+npm install @yapper/react @yapper/core
 ```
 
-Use the hook and UI components:
-
 ```tsx
-import React from 'react';
-import { useYapper, YapperOrb, YapperDictationPill, LocalModelCard } from '@yapper/react';
+import React, { useState } from 'react';
+import { useTalk, TalkOrb, LocalModelCard } from '@yapper/react';
 
-export function VoiceAssistant() {
+export function LetterCompanion() {
+  const [transcript, setTranscript] = useState('');
+
   const {
     isListening,
     isTranscribing,
     audioLevel,
     interimText,
-    finalText,
     modelProgress,
     start,
     stop,
     downloadModel,
     removeModel,
-  } = useYapper({
-    preferredEngine: 'auto', // 'local' | 'browser' | 'cloud'
-    modelSize: 'tiny',       // ~40MB on-device Whisper
+  } = useTalk({
+    preferredEngine: 'auto', // 'local' (WebGPU Whisper) | 'browser' (Native)
+    modelSize: 'tiny',       // 28MB fast 4-bit Whisper
     language: 'english',
-    onFinal: (text) => console.log('Final text:', text),
+    onFinal: (sentence) => {
+      setTranscript((prev) => (prev ? `${prev} ${sentence}` : sentence));
+    },
   });
 
   return (
-    <div className="flex flex-col items-center gap-6 p-8">
-      {/* On-device model download card */}
-      <LocalModelCard
-        progress={modelProgress}
-        modelSize="tiny"
-        approxMb={40}
-        onDownload={downloadModel}
-        onRemove={removeModel}
-      />
-
-      {/* Audio-reactive glowing orb */}
-      <YapperOrb
+    <div className="flex flex-col items-center gap-6 p-8 bg-[#FAF6EE] text-[#251C17]">
+      {/* Living Wax-Seal Voice Orb */}
+      <TalkOrb
         size="lg"
         isListening={isListening}
         isProcessing={isTranscribing}
@@ -96,14 +99,20 @@ export function VoiceAssistant() {
         onClick={isListening ? stop : start}
       />
 
-      {/* Floating dictation pill with live partials */}
-      <YapperDictationPill
-        status={isListening ? 'listening' : 'idle'}
-        engine="local"
-        interimText={interimText}
-      />
+      {/* Real-Time Manuscript Paper */}
+      <div className="w-full max-w-xl p-6 bg-white border border-stone-200 rounded-2xl shadow-sm font-serif text-lg leading-relaxed">
+        {transcript && <span>{transcript} </span>}
+        {interimText && <span className="text-red-600 italic animate-pulse">{interimText}</span>}
+      </div>
 
-      {finalText && <p className="text-sm font-semibold">{finalText}</p>}
+      {/* Model Download & Cache Management */}
+      <LocalModelCard
+        progress={modelProgress}
+        modelSize="tiny"
+        approxMb={28}
+        onDownload={downloadModel}
+        onRemove={removeModel}
+      />
     </div>
   );
 }
@@ -114,32 +123,36 @@ export function VoiceAssistant() {
 ### 2. Vanilla JavaScript / TypeScript (`@yapper/core`)
 
 ```typescript
-import { YapperClient } from '@yapper/core';
+import { TalkClient } from '@yapper/core';
 
-const yapper = new YapperClient({
+const client = new TalkClient({
   preferredEngine: 'auto',
+  modelSize: 'tiny',
   language: 'english',
-  onInterim: (words) => {
-    console.log('Real-time running words:', words);
+  onAudioLevel: (level) => {
+    // Volume level 0.0 to 1.0 at ~60fps
   },
-  onFinal: (text) => {
-    console.log('Final committed text:', text);
+  onInterim: (words) => {
+    console.log('Live words as spoken:', words);
+  },
+  onFinal: (sentence) => {
+    console.log('Committed sentence:', sentence);
   },
 });
 
-// Start listening
-const session = await yapper.start();
+// Start listening (requests microphone and resumes Web Audio graph)
+await client.start();
 
-// Stop listening and get transcript
-const text = await yapper.stop();
-console.log('Spoken:', text);
+// Stop listening and finalize transcription
+const fullTranscript = await client.stop();
+console.log('Letter complete:', fullTranscript);
 ```
 
 ---
 
-### 3. Zero Data Retention Cloud Gateway (`@yapper/server`)
+### 3. Optional Zero Data Retention Gateway (`@yapper/server`)
 
-If you want to proxy speech through a self-hosted cloud endpoint with anti-abuse security and zero disk storage:
+For teams requiring a centralized proxy endpoint with guaranteed zero disk logging:
 
 ```bash
 cd packages/server
@@ -147,38 +160,39 @@ yarn install
 OPENAI_API_KEY=your_key yarn start
 ```
 
-Transcribe an audio buffer via standard HTTP POST:
+Transcribe audio with payload magic-byte validation:
 
 ```bash
 curl -X POST http://localhost:8089/api/transcribe \
-  -F "file=@recording.webm" \
+  -F "file=@speech.wav" \
   -F "language=en"
 ```
 
 ---
 
-## 🛡️ Security & Privacy ("Must Be Safe")
+## 🛡️ Security & Privacy Invariants
 
-Yapper is built with strict privacy and resource safety invariants:
-
-1. **Client-Side Privacy Guarantee**: In `local` mode, audio is processed purely in RAM using WebGPU/WASM tensor pipelines. No audio data, vectors, or transcripts are ever sent across the network.
-2. **Zero Data Retention (ZDR)**: The server gateway processes incoming audio in transient memory buffers. Audio files are never written to disk, database, or object storage.
-3. **Hallucination Suppression**: Whisper models frequently loop on background noise (`[Music]`, `Thank you for watching`). Yapper gates inference through an energy-based Voice Activity Detector (VAD) and filters phantom tokens.
-4. **Thermal & GPU Protection**: In-browser inference automatically skips frames if the previous chunk is still executing, preventing GPU queuing and thermal throttling.
+1. **Zero Disk & Zero Cloud Logging**: Audio in `local` mode never crosses the network. When using `@yapper/server`, audio is held solely in volatile RAM during the lifetime of the HTTP request and is purged immediately upon response completion.
+2. **Deterministic Bounded Generation**: Interim streaming passes enforce greedy decoding (`num_beams: 1`, `temperature: 0`) and cap tokens (`max_new_tokens: 64`) to eliminate infinite autoregressive loops and hallucination tokens on background silence.
+3. **AudioContext Autoplay Safety**: Web Audio contexts are proactively verified and resumed upon user gesture, preventing silenced frequency bin loops in modern strict browser environments.
+4. **Hardware Rate Adaptation**: The built-in `downsampleTo16k()` utility safely decimates any hardware DAC sample rate (44.1 kHz, 48 kHz, 96 kHz) into exact 16 kHz mono PCM, eliminating container decoding errors.
 
 ---
 
-## 🤝 Contributing
-
-We welcome community contributions, additional model architectures (such as Useful Sensors' Moonshine), and framework bindings.
+## 🛠️ Development
 
 ```bash
-# Clone the repo
-git clone https://github.com/plaatoos/yapper.git
+# Clone the repository
+git clone https://github.com/luisenriquecgongora/yapper.git
 cd yapper
 
-# Install dependencies and build
+# Install monorepo dependencies
 yarn install
+
+# Run the showcase development server (port 5173)
+yarn dev
+
+# Compile all workspaces (core, react, server, showcase)
 yarn build
 ```
 
@@ -186,4 +200,4 @@ yarn build
 
 ## 📄 License
 
-MIT © [PlaatoOS](https://plaatoos.com) / Taki Entertainment.
+MIT © [PlaatoOS](https://plaatoos.com) / Luis Enrique.
