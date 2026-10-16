@@ -10,11 +10,23 @@ build/
 .turbo/
 .cache/
 
-# Environment and secrets
+# Environment and secrets (Strictly blocked)
 .env
-.env.local
-.env.production
-.env.*.local
+.env.*
+*.env
+*.pem
+*.key
+*.pfx
+*.p12
+*.cert
+*.crt
+id_rsa*
+id_ed25519*
+credentials.json
+serviceAccountKey.json
+client_secret*.json
+token.json
+secrets/
 
 # Logs
 npm-debug.log*
