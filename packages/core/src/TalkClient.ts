@@ -65,8 +65,9 @@ export class TalkClient {
   }
 
   public updateOptions(newOptions: Partial<TalkClientOptions>): void {
+    const oldSize = this.localEngine.modelSize;
     this.options = { ...this.options, ...newOptions };
-    if (newOptions.modelSize && newOptions.modelSize !== this.localEngine.modelSize) {
+    if (newOptions.modelSize && newOptions.modelSize !== oldSize) {
       this.localEngine = new LocalWhisperEngine(newOptions.modelSize, this.options.modelHost);
       if (this.options.onModelProgress) {
         this.localEngine.subscribeProgress(this.options.onModelProgress);
@@ -79,7 +80,8 @@ export class TalkClient {
     if (pref && pref !== 'auto') {
       return pref;
     }
-    if (this.localEngine.getState().status === 'ready') {
+    const localStatus = this.localEngine.getState().status;
+    if (localStatus === 'ready' || localStatus === 'loading') {
       return 'local';
     }
     if (BrowserSpeechEngine.isSupported()) {
@@ -124,6 +126,17 @@ export class TalkClient {
     if (engine === 'none') {
       this.setStatus('needsModel');
       throw new Error('No voice engine is ready. Please download the local model or configure a cloud endpoint.');
+    }
+
+    // If local engine is currently in the middle of auto-awakening, await completion gracefully
+    if (engine === 'local' && this.localEngine.getState().status === 'loading') {
+      this.setStatus('loading');
+      try {
+        await this.localEngine.load(false);
+      } catch {
+        this.setStatus('needsModel');
+        throw new Error('Model failed to awaken.');
+      }
     }
 
     try {
@@ -228,14 +241,14 @@ export class TalkClient {
     } else if (engine === 'local') {
       // Periodic streaming passes using direct Float32Array PCM samples
       this.streamIntervalId = setInterval(async () => {
-        if (this.isProcessingChunk) return;
+        if (this.isProcessingChunk || this.currentStatus !== 'listening') return;
         const pcm = this.getAccumulatedPcm();
         if (pcm.length < 4800) return; // Need at least 0.3s of 16kHz audio
 
         this.isProcessingChunk = true;
         try {
           const text = await this.localEngine.transcribe(pcm, this.options.language);
-          if (text) {
+          if (text && this.currentStatus === 'listening') {
             this.options.onInterim?.(text);
           }
         } catch (err) {
@@ -243,7 +256,7 @@ export class TalkClient {
         } finally {
           this.isProcessingChunk = false;
         }
-      }, 1000);
+      }, 800);
     }
 
     return {

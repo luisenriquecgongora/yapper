@@ -9,6 +9,7 @@ export type ModelSize = 'tiny' | 'base' | 'small';
 
 export type TalkStatus =
   | 'idle'
+  | 'loading'
   | 'listening'
   | 'transcribing'
   | 'noSpeech'

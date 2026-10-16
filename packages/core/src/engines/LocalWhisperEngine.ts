@@ -16,8 +16,8 @@ export const MODEL_REGISTRY: Record<ModelSize, { id: string; approxMb: number }>
 const CACHE_NAME = 'transformers-cache';
 const READY_STORAGE_PREFIX = 'plaato.talk.modelReady:';
 
-// Phantom Whisper tokens produced during background noise
-const HALLUCINATION_REGEX = /^(\[.*\]|\(.*\)|thank you for watching.*|subtitles by.*|\.+)$/i;
+// Phantom Whisper tokens produced during background noise or silence
+const HALLUCINATION_REGEX = /^(\[.*\]|\(.*\)|thank you for watching.*|subtitles by.*|you|\.+)$/i;
 
 type ProgressListener = (progress: LocalModelDownloadProgress) => void;
 
@@ -38,7 +38,23 @@ export class LocalWhisperEngine {
   constructor(modelSize: ModelSize = 'tiny', modelHost?: string) {
     this._modelSize = modelSize;
     this.modelHost = modelHost;
-    this.state.status = this.checkIsDownloaded() ? 'ready' : 'absent';
+    const isDownloaded = this.checkIsDownloaded();
+    this.state.status = isDownloaded ? 'loading' : 'absent';
+
+    // If model was previously downloaded into Cache API, eagerly awaken in background
+    if (isDownloaded && typeof window !== 'undefined') {
+      const autoAwaken = () => {
+        this.load(false).catch((err) => {
+          console.warn('[yapper] Background auto-awakening failed:', err);
+          this.updateState({ status: 'absent' });
+        });
+      };
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(autoAwaken, { timeout: 1500 });
+      } else {
+        setTimeout(autoAwaken, 200);
+      }
+    }
   }
 
   public get modelSize(): ModelSize {
@@ -107,25 +123,50 @@ export class LocalWhisperEngine {
       }
 
       const hasGpu = typeof navigator !== 'undefined' && 'gpu' in navigator;
-      const asr = await (pipeline as any)('automatic-speech-recognition', this.modelId, {
-        device: hasGpu ? 'webgpu' : 'wasm',
-        dtype: hasGpu ? { encoder_model: 'fp16', decoder_model_merged: 'q4' } : 'q8',
-        progress_callback: (event: any) => {
-          if (event?.status !== 'progress' || !event.file) return;
-          fileMap.set(event.file, { loaded: event.loaded ?? 0, total: event.total ?? 0 });
-          let loaded = 0;
-          let total = 0;
-          fileMap.forEach((f) => {
-            loaded += f.loaded;
-            total += f.total;
+      const progressCb = (event: any) => {
+        if (event?.status !== 'progress' || !event.file) return;
+        fileMap.set(event.file, { loaded: event.loaded ?? 0, total: event.total ?? 0 });
+        let loaded = 0;
+        let total = 0;
+        fileMap.forEach((f) => {
+          loaded += f.loaded;
+          total += f.total;
+        });
+        this.updateState({
+          loadedBytes: loaded,
+          totalBytes: total,
+          progress: total > 0 ? loaded / total : 0,
+        });
+      };
+
+      let asr: any;
+      try {
+        if (hasGpu) {
+          asr = await (pipeline as any)('automatic-speech-recognition', this.modelId, {
+            device: 'webgpu',
+            dtype: { encoder_model: 'fp16', decoder_model_merged: 'q4' },
+            progress_callback: progressCb,
           });
-          this.updateState({
-            loadedBytes: loaded,
-            totalBytes: total,
-            progress: total > 0 ? loaded / total : 0,
-          });
-        },
-      });
+        } else {
+          throw new Error('WebGPU not supported on this device');
+        }
+      } catch (gpuErr) {
+        console.warn('[yapper] WebGPU initialization failed or unavailable, falling back to WASM:', gpuErr);
+        asr = await (pipeline as any)('automatic-speech-recognition', this.modelId, {
+          device: 'wasm',
+          dtype: 'q8',
+          progress_callback: progressCb,
+        });
+      }
+
+      // Warm up pipeline with 0.2s silent audio to compile WebGPU WGSL shaders / WASM kernels
+      try {
+        const dummyAudio = new Float32Array(3200);
+        await asr(dummyAudio, { task: 'transcribe' });
+      } catch (warmupErr) {
+        console.warn('[yapper] Non-fatal shader warm-up notice:', warmupErr);
+      }
+
       return asr;
     })();
 
@@ -154,20 +195,31 @@ export class LocalWhisperEngine {
     }
 
     const asr = await this.load(false);
-    const result = await asr(audio, {
-      language,
+    const options: any = {
       task: 'transcribe',
-      chunk_length_s: 30,
-      stride_length_s: 5,
-    });
+    };
+    if (language) {
+      options.language = language;
+    }
+    // Only chunk if audio exceeds 30 seconds
+    if (audio.length > 30 * 16000) {
+      options.chunk_length_s = 30;
+      options.stride_length_s = 5;
+    }
 
-    const raw = Array.isArray(result) ? result.map((r: any) => r.text).join(' ') : result.text;
-    const clean = (raw || '').trim();
+    try {
+      const result = await asr(audio, options);
+      const raw = Array.isArray(result) ? result.map((r: any) => r.text).join(' ') : result.text;
+      const clean = (raw || '').trim();
 
-    if (HALLUCINATION_REGEX.test(clean)) {
+      if (HALLUCINATION_REGEX.test(clean)) {
+        return '';
+      }
+      return clean;
+    } catch (err) {
+      console.warn('[yapper] transcription error:', err);
       return '';
     }
-    return clean;
   }
 
   public async remove(): Promise<void> {

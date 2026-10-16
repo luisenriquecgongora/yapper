@@ -32,6 +32,7 @@ export function useTalk(options: UseTalkOptions = {}) {
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
+  const lastInterimRef = useRef<string>('');
   const clientRef = useRef<TalkClient | null>(null);
 
   if (!clientRef.current) {
@@ -46,13 +47,15 @@ export function useTalk(options: UseTalkOptions = {}) {
         optionsRef.current.onAudioLevel?.(l);
       },
       onInterim: (text) => {
+        lastInterimRef.current = text;
         setInterimText(text);
         optionsRef.current.onInterim?.(text);
       },
       onFinal: (text) => {
-        setFinalText(text);
+        const result = text || lastInterimRef.current;
+        setFinalText(result);
         setInterimText('');
-        optionsRef.current.onFinal?.(text);
+        optionsRef.current.onFinal?.(result);
       },
       onModelProgress: (p) => {
         setModelProgress(p);
@@ -83,6 +86,8 @@ export function useTalk(options: UseTalkOptions = {}) {
 
   const start = useCallback(async () => {
     setInterimText('');
+    setFinalText('');
+    lastInterimRef.current = '';
     return client.start();
   }, [client]);
 
@@ -93,6 +98,7 @@ export function useTalk(options: UseTalkOptions = {}) {
   const cancel = useCallback(() => {
     client.cancel();
     setInterimText('');
+    lastInterimRef.current = '';
   }, [client]);
 
   const downloadModel = useCallback(async () => {

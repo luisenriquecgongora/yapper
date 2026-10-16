@@ -159,8 +159,16 @@ export function App() {
             <div className="md:col-span-7 flex flex-col items-center justify-center p-6 md:p-8 rounded-2xl paper-card relative space-y-6 min-h-[380px]">
               {/* Presence badge */}
               <div className="flex items-center gap-2">
-                <span className="text-[10px] px-3 py-0.5 rounded-full border border-[#D9CDBE] bg-[#FAF5EB] text-[#736056] font-mono uppercase tracking-wider">
-                  Active Presence: <strong className="text-[#C23B22]">{engine}</strong>
+                <span className="text-[10px] px-3 py-0.5 rounded-full border border-[#D9CDBE] bg-[#FAF5EB] text-[#736056] font-mono uppercase tracking-wider flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${modelProgress.status === 'ready' ? 'bg-[#D9983B]' : modelProgress.status === 'loading' ? 'bg-[#C23B22] animate-ping' : 'bg-[#8C776E]'}`} />
+                  Active Presence:{' '}
+                  <strong className="text-[#C23B22]">
+                    {modelProgress.status === 'ready'
+                      ? 'On-Device WebGPU'
+                      : modelProgress.status === 'loading'
+                      ? 'Awakening...'
+                      : engine}
+                  </strong>
                 </span>
               </div>
 
@@ -178,6 +186,10 @@ export function App() {
                   ? 'Listening softly... click to pause'
                   : isTranscribing
                   ? 'Inking your words into memory...'
+                  : modelProgress.status === 'loading'
+                  ? 'Awakening WebGPU pipeline...'
+                  : modelProgress.status === 'downloading'
+                  ? 'Receiving neural weights...'
                   : 'Click the warm seal and speak aloud'}
               </span>
 
