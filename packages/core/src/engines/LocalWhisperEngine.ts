@@ -10,13 +10,41 @@ import { logger } from '../logger';
 import { LocalModelDownloadProgress, ModelSize } from '../types';
 
 export const MODEL_REGISTRY: Record<ModelSize, { id: string; approxMb: number }> = {
-  tiny: { id: 'onnx-community/whisper-tiny', approxMb: 28 },
-  base: { id: 'onnx-community/whisper-base', approxMb: 48 },
-  small: { id: 'onnx-community/whisper-small', approxMb: 145 },
+  tiny: { id: 'onnx-community/whisper-tiny', approxMb: 76 },
+  base: { id: 'onnx-community/whisper-base', approxMb: 140 },
+  small: { id: 'onnx-community/whisper-small', approxMb: 240 },
 };
 
 const CACHE_NAME = 'transformers-cache';
-const READY_STORAGE_PREFIX = 'plaato.talk.modelReady:';
+const READY_STORAGE_PREFIX = 'plaato.talk.modelReady.v2:';
+
+// ISO 639-1 code map to prevent Whisper language auto-detection delays
+export const LANGUAGE_CODE_MAP: Record<string, string> = {
+  english: 'en',
+  en: 'en',
+  spanish: 'es',
+  es: 'es',
+  french: 'fr',
+  fr: 'fr',
+  german: 'de',
+  de: 'de',
+  italian: 'it',
+  it: 'it',
+  portuguese: 'pt',
+  pt: 'pt',
+  polish: 'pl',
+  pl: 'pl',
+  russian: 'ru',
+  ru: 'ru',
+  korean: 'ko',
+  ko: 'ko',
+  chinese: 'zh',
+  zh: 'zh',
+  japanese: 'ja',
+  ja: 'ja',
+  ukrainian: 'uk',
+  uk: 'uk',
+};
 
 // Phantom Whisper tokens produced during background noise or silence
 const HALLUCINATION_REGEX = /^(\[.*\]|\(.*\)|thank you for watching.*|subtitles by.*|you|\.+)$/i;
@@ -145,11 +173,10 @@ export class LocalWhisperEngine {
           if (adapter) {
             selectedDevice = 'webgpu';
             const hasFp16 = adapter.features?.has('shader-f16');
-            // Encoder uses fp16 or fp32 (q4 encoder is unsupported in WebGPU ONNX kernels)
-            // Decoder uses q4 for low memory bandwidth and fast autoregressive step
+            // Full native half-precision FP16 on WebGPU eliminates per-token q4 dequantization overhead
             selectedDtype = {
               encoder_model: hasFp16 ? 'fp16' : 'fp32',
-              decoder_model_merged: 'q4',
+              decoder_model_merged: hasFp16 ? 'fp16' : 'fp32',
             };
             logger.info('hardware', `WebGPU adapter verified. shader-f16: ${!!hasFp16}`);
           } else {
@@ -215,7 +242,7 @@ export class LocalWhisperEngine {
       try {
         logger.info('model', 'Pre-warming pipeline shaders with 0.2s dummy audio...');
         const dummyAudio = new Float32Array(3200);
-        await asr(dummyAudio, { task: 'transcribe', max_new_tokens: 1, num_beams: 1 });
+        await asr(dummyAudio, { task: 'transcribe', max_new_tokens: 1, num_beams: 1, language: 'en' });
         logger.info('model', 'Pipeline shaders compiled and ready in GPU memory');
       } catch (warmupErr: any) {
         logger.debug('model', 'Non-fatal shader warm-up notice:', warmupErr?.message || warmupErr);
@@ -246,7 +273,11 @@ export class LocalWhisperEngine {
     );
   }
 
-  public async transcribe(input: Blob | Float32Array, language: string = 'english'): Promise<string> {
+  public async transcribe(
+    input: Blob | Float32Array,
+    language: string = 'english',
+    isInterim: boolean = false
+  ): Promise<string> {
     if (this.loadFailed) {
       return '';
     }
@@ -266,17 +297,18 @@ export class LocalWhisperEngine {
       return '';
     }
 
+    // Resolve ISO 639-1 language code to eliminate language-detection pipeline delay
+    const normalizedLang = language ? (LANGUAGE_CODE_MAP[language.toLowerCase()] || language) : 'en';
+
     const options: any = {
       task: 'transcribe',
       num_beams: 1,       // Greedy decoding: 5x-10x faster than default beam search
-      max_new_tokens: 64, // Fast bounded decoding (prevents runaway autoregressive loops)
+      max_new_tokens: isInterim ? 18 : 96, // Fast bounded decoding for real-time interim streaming vs full commit
       do_sample: false,   // Deterministic greedy pass
       temperature: 0,
       return_timestamps: false,
+      language: normalizedLang,
     };
-    if (language) {
-      options.language = language;
-    }
     // Only chunk if audio exceeds 30 seconds
     if (audio.length > 30 * 16000) {
       options.chunk_length_s = 30;

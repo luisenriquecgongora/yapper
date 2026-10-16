@@ -288,7 +288,7 @@ export function App() {
             <LocalModelCard
               progress={modelProgress}
               modelSize={modelSize}
-              approxMb={modelSize === 'tiny' ? 28 : modelSize === 'base' ? 48 : 145}
+              approxMb={modelSize === 'tiny' ? 76 : modelSize === 'base' ? 140 : 240}
               onDownload={downloadModel}
               onRemove={removeModel}
             />

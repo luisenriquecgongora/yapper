@@ -42,6 +42,7 @@ export function useTalk(options: UseTalkOptions = {}) {
   optionsRef.current = options;
 
   const lastInterimRef = useRef<string>('');
+  const lastLevelTimeRef = useRef<number>(0);
   const clientRef = useRef<TalkClient | null>(null);
 
   if (!clientRef.current) {
@@ -52,7 +53,11 @@ export function useTalk(options: UseTalkOptions = {}) {
         optionsRef.current.onStatusChange?.(s);
       },
       onAudioLevel: (l) => {
-        setAudioLevel(l);
+        const now = performance.now();
+        if (now - lastLevelTimeRef.current >= 28) {
+          lastLevelTimeRef.current = now;
+          setAudioLevel(l);
+        }
         optionsRef.current.onAudioLevel?.(l);
       },
       onInterim: (text) => {

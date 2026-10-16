@@ -81,14 +81,15 @@ export function calculateRms(samples: Float32Array | Uint8Array): number {
       sum += samples[i] * samples[i];
     }
     const rms = Math.sqrt(sum / samples.length);
-    return Math.min(1, rms * 4.0);
+    // Human voice RMS sits around 0.008 to 0.08. Amplify to cover 0.0 - 1.0 smoothly.
+    return Math.min(1, Math.max(0, rms * 8.0));
   } else {
     // Frequency data bins from 0 to 255 (0 = silence, 255 = maximum magnitude)
     for (let i = 0; i < samples.length; i++) {
       sum += samples[i] * samples[i];
     }
     const rms = Math.sqrt(sum / samples.length) / 255;
-    return Math.min(1, rms * 3.0);
+    return Math.min(1, Math.max(0, rms * 5.0));
   }
 }
 

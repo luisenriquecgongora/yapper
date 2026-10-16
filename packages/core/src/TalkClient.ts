@@ -35,6 +35,7 @@ export class TalkClient {
   private streamIntervalId: any = null;
   private isProcessingChunk: boolean = false;
   private activeSessionEngine: VoiceEngine = 'none';
+  private lastInterimResult: string = '';
 
   constructor(options: TalkClientOptions = {}) {
     this.options = {
@@ -232,6 +233,7 @@ export class TalkClient {
 
     this.agreementChunker.reset();
     this.vad.reset();
+    this.lastInterimResult = '';
     this.setStatus('listening');
 
     // Real-time audio level loop (~60fps)
@@ -273,7 +275,7 @@ export class TalkClient {
         this.activeSession = null;
       }
     } else if (engine === 'local') {
-      logger.info('stt', `Starting local streaming cadence (600ms chunk intervals) in ${this.options.language}...`);
+      logger.info('stt', `Starting local streaming cadence (500ms chunk intervals) in ${this.options.language}...`);
       this.streamIntervalId = setInterval(async () => {
         if (this.isProcessingChunk || this.currentStatus !== 'listening') return;
         const pcm = this.getAccumulatedPcm();
@@ -281,8 +283,10 @@ export class TalkClient {
 
         this.isProcessingChunk = true;
         try {
-          const text = await this.localEngine.transcribe(pcm, this.options.language);
+          // Fast bounded decode (isInterim: true, max_new_tokens: 18)
+          const text = await this.localEngine.transcribe(pcm, this.options.language, true);
           if (text && this.currentStatus === 'listening') {
+            this.lastInterimResult = text;
             this.options.onInterim?.(text);
           }
         } catch (err: any) {
@@ -290,7 +294,7 @@ export class TalkClient {
         } finally {
           this.isProcessingChunk = false;
         }
-      }, 600);
+      }, 500);
     }
 
     return {
@@ -324,6 +328,13 @@ export class TalkClient {
 
     this.cleanupAudio();
 
+    // Concurrency guard: await any in-flight interim chunk so WebGPU never chokes on parallel decode passes
+    let waitLoops = 0;
+    while (this.isProcessingChunk && waitLoops < 25) {
+      await new Promise((r) => setTimeout(r, 40));
+      waitLoops++;
+    }
+
     let finalText = '';
     const engine = this.activeSessionEngine;
 
@@ -332,7 +343,11 @@ export class TalkClient {
         finalText = await session.stop();
       } else if (engine === 'local') {
         if (finalPcm.length >= 2400) {
-          finalText = await this.localEngine.transcribe(finalPcm, this.options.language);
+          finalText = await this.localEngine.transcribe(finalPcm, this.options.language, false);
+        }
+        // If final pass returned empty (e.g. trailing pause), smoothly salvage the latest recognized interim
+        if (!finalText && this.lastInterimResult) {
+          finalText = this.lastInterimResult;
         }
       } else if (engine === 'cloud' && this.cloudEngine) {
         const wavBlob = float32ToWav(finalPcm);
@@ -345,6 +360,7 @@ export class TalkClient {
     }
 
     this.setStatus('idle');
+    this.lastInterimResult = '';
     if (finalText) {
       logger.info('stt', `Committed transcript (${finalText.length} chars): "${finalText}"`);
       this.options.onFinal?.(finalText);

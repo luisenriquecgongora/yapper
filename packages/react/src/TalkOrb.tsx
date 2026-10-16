@@ -29,15 +29,17 @@ export const TalkOrb: React.FC<TalkOrbProps> = ({
     lg: 'w-52 h-52',
   };
 
-  const scale = isListening ? 1 + audioLevel * 0.35 : 1;
-  const glow = isListening ? 40 + audioLevel * 45 : 24;
+  // Non-linear perceptual scaling: low to mid speech levels (0.02-0.2) blossom into a vivid 15%-30% expansion
+  const dynamicReaction = isListening ? Math.min(1, Math.pow(Math.max(0, audioLevel), 0.55) * 1.6) : 0;
+  const scale = isListening ? 1.03 + dynamicReaction * 0.28 : 1;
+  const glow = isListening ? 38 + dynamicReaction * 55 : 24;
 
   return (
     <div
       onClick={onClick}
       role="button"
       tabIndex={0}
-      className={`relative ${sizeMap[size]} rounded-full flex items-center justify-center cursor-pointer select-none transition-transform duration-100 ease-out group ${className}`}
+      className={`relative ${sizeMap[size]} rounded-full flex items-center justify-center cursor-pointer select-none transition-transform duration-75 ease-out group ${className}`}
       style={{
         transform: `scale(${scale})`,
       }}
@@ -47,7 +49,7 @@ export const TalkOrb: React.FC<TalkOrbProps> = ({
         className="absolute inset-[-25%] rounded-full blur-3xl transition-all duration-700 pointer-events-none"
         style={{
           background: isListening
-            ? 'radial-gradient(circle, rgba(194, 59, 34, 0.6) 0%, rgba(217, 152, 59, 0.3) 45%, transparent 75%)'
+            ? 'radial-gradient(circle, rgba(194, 59, 34, 0.65) 0%, rgba(217, 152, 59, 0.35) 45%, transparent 75%)'
             : isProcessing
             ? 'radial-gradient(circle, rgba(217, 152, 59, 0.5) 0%, rgba(194, 59, 34, 0.25) 50%, transparent 80%)'
             : 'radial-gradient(circle, rgba(194, 59, 34, 0.35) 0%, rgba(217, 152, 59, 0.15) 50%, transparent 75%)',
@@ -68,19 +70,19 @@ export const TalkOrb: React.FC<TalkOrbProps> = ({
       {isListening && (
         <>
           <div
-            className="absolute inset-[-8px] rounded-full border transition-all duration-75"
+            className="absolute inset-[-10px] rounded-full border pointer-events-none transition-all duration-75"
             style={{
-              borderColor: 'rgba(194, 59, 34, 0.45)',
-              transform: `scale(${1 + audioLevel * 0.25})`,
-              opacity: 0.5 + audioLevel * 0.5,
+              borderColor: 'rgba(194, 59, 34, 0.5)',
+              transform: `scale(${1 + dynamicReaction * 0.35})`,
+              opacity: 0.4 + dynamicReaction * 0.6,
             }}
           />
           <div
-            className="absolute inset-[-18px] rounded-full border transition-all duration-100"
+            className="absolute inset-[-22px] rounded-full border pointer-events-none transition-all duration-100"
             style={{
-              borderColor: 'rgba(217, 152, 59, 0.3)',
-              transform: `scale(${1 + audioLevel * 0.45})`,
-              opacity: audioLevel * 0.7,
+              borderColor: 'rgba(217, 152, 59, 0.4)',
+              transform: `scale(${1 + dynamicReaction * 0.65})`,
+              opacity: dynamicReaction * 0.85,
             }}
           />
         </>
