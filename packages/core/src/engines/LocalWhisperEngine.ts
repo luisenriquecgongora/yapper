@@ -302,10 +302,12 @@ export class LocalWhisperEngine {
 
     const options: any = {
       task: 'transcribe',
-      num_beams: 1,       // Greedy decoding: 5x-10x faster than default beam search
-      max_new_tokens: isInterim ? 18 : 96, // Fast bounded decoding for real-time interim streaming vs full commit
-      do_sample: false,   // Deterministic greedy pass
+      num_beams: 1,        // Greedy decoding: 5x-10x faster than default beam search
+      max_new_tokens: isInterim ? 12 : 96, // Tightly bounded tokens for interim (~3-4 words) avoids decoder runaway loops
+      do_sample: false,    // Deterministic greedy pass
       temperature: 0,
+      repetition_penalty: 1.25, // Prevents looping on dots "...." or repetitive phantom tokens on low audio
+      no_repeat_ngram_size: 3,  // Halts autoregressive loop if 3-grams repeat
       return_timestamps: false,
       language: normalizedLang,
     };
@@ -319,11 +321,17 @@ export class LocalWhisperEngine {
     try {
       const result = await asr(audio, options);
       const latencyMs = Math.round(performance.now() - t0);
+      const audioDurationSec = (audio.length / 16000).toFixed(1);
       const raw = Array.isArray(result) ? result.map((r: any) => r.text).join(' ') : result.text;
       const clean = (raw || '').trim();
+      const approxTokens = clean ? Math.max(1, Math.round(clean.length / 3.8)) : 0;
+      const msPerToken = approxTokens > 0 ? Math.round(latencyMs / approxTokens) : latencyMs;
 
       if (clean && !HALLUCINATION_REGEX.test(clean)) {
-        logger.debug('stt', `WebGPU transcribed "${clean.substring(0, 40)}..." in ${latencyMs}ms`);
+        logger.info(
+          'stt',
+          `[Interpreting] ${audioDurationSec}s audio transcribed in ${latencyMs}ms (~${msPerToken}ms/token, ${clean.length} chars) → "${clean.substring(0, 45)}${clean.length > 45 ? '...' : ''}"`
+        );
         return clean;
       }
       return '';

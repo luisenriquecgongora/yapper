@@ -266,8 +266,10 @@ export class TalkClient {
         this.activeSession = this.browserEngine.startSession({
           language: this.options.language,
           onInterim: (text) => {
-            logger.debug('stt', `Native interim partial: "${text}"`);
+            const tWriteStart = performance.now();
             this.options.onInterim?.(text);
+            const writeMs = Math.round(performance.now() - tWriteStart);
+            logger.debug('engine', `[Writing] Native instant word inked in ${writeMs}ms: "${text}"`);
           },
         });
       } catch (err: any) {
@@ -275,19 +277,41 @@ export class TalkClient {
         this.activeSession = null;
       }
     } else if (engine === 'local') {
-      logger.info('stt', `Starting local streaming cadence (500ms chunk intervals) in ${this.options.language}...`);
+      logger.info('stt', `Starting local streaming cadence (500ms intervals) in ${this.options.language}...`);
       this.streamIntervalId = setInterval(async () => {
         if (this.isProcessingChunk || this.currentStatus !== 'listening') return;
         const pcm = this.getAccumulatedPcm();
         if (pcm.length < 4800) return; // Need at least 0.3s of 16kHz audio
 
+        // Phase 1: Receiving & Voice Energy Check
+        const totalSec = (pcm.length / 16000).toFixed(1);
+        const recentTail = pcm.subarray(-24000); // inspect last 1.5s
+        const recentEnergy = calculateRms(recentTail);
+
+        // Skip GPU dispatch if user is silent to avoid wasting 10s generating hallucinated phantom tokens
+        if (recentEnergy < 0.025 && !this.vad.speaking) {
+          return;
+        }
+
+        logger.debug('audio', `[Receiving] Audio buffer: ${totalSec}s (${pcm.length} samples, RMS energy: ${recentEnergy.toFixed(3)})`);
+
         this.isProcessingChunk = true;
         try {
-          // Fast bounded decode (isInterim: true, max_new_tokens: 18)
-          const text = await this.localEngine.transcribe(pcm, this.options.language, true);
+          // Phase 2: Interpreting via WebGPU
+          // Slice active speech window (last 4.5s max) so Whisper only decodes current words instead of re-reading earlier history
+          const activeSlice = pcm.length > 4.5 * 16000 ? pcm.subarray(-4.5 * 16000) : pcm;
+          const tInterpStart = performance.now();
+          const text = await this.localEngine.transcribe(activeSlice, this.options.language, true);
+          const interpMs = Math.round(performance.now() - tInterpStart);
+
           if (text && this.currentStatus === 'listening') {
             this.lastInterimResult = text;
+
+            // Phase 3: Writing to paper manuscript
+            const tWriteStart = performance.now();
             this.options.onInterim?.(text);
+            const writeMs = Math.round(performance.now() - tWriteStart);
+            logger.info('engine', `[Writing] Inked interim text to manuscript in ${writeMs}ms (interp: ${interpMs}ms): "${text.substring(0, 35)}..."`);
           }
         } catch (err: any) {
           logger.warn('stt', `Local streaming pass notice: ${err?.message || err}`);
@@ -337,12 +361,14 @@ export class TalkClient {
 
     let finalText = '';
     const engine = this.activeSessionEngine;
+    const tCommitStart = performance.now();
 
     try {
       if (engine === 'browser' && session) {
         finalText = await session.stop();
       } else if (engine === 'local') {
         if (finalPcm.length >= 2400) {
+          logger.info('stt', `[Interpreting] Executing final full-audio commit pass (${(finalPcm.length / 16000).toFixed(1)}s)...`);
           finalText = await this.localEngine.transcribe(finalPcm, this.options.language, false);
         }
         // If final pass returned empty (e.g. trailing pause), smoothly salvage the latest recognized interim
@@ -359,11 +385,14 @@ export class TalkClient {
       throw err;
     }
 
+    const commitElapsedMs = Math.round(performance.now() - tCommitStart);
     this.setStatus('idle');
     this.lastInterimResult = '';
     if (finalText) {
-      logger.info('stt', `Committed transcript (${finalText.length} chars): "${finalText}"`);
+      const tWriteStart = performance.now();
       this.options.onFinal?.(finalText);
+      const writeMs = Math.round(performance.now() - tWriteStart);
+      logger.info('engine', `[Writing] Final transcript (${finalText.length} chars) written in ${writeMs}ms (total commit pipeline: ${commitElapsedMs}ms): "${finalText}"`);
     } else {
       logger.info('stt', 'Audio finished with empty transcript (silence or suppressed noise).');
     }

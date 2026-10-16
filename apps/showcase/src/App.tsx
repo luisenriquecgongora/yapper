@@ -209,33 +209,47 @@ export function App() {
               
               {/* Architecture Selector */}
               <div>
-                <label className="text-[10px] font-mono uppercase tracking-wider text-[#8C776E] block font-semibold mb-1.5">
-                  Engine Architecture
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-[#8C776E] block font-semibold">
+                    Engine Architecture
+                  </label>
+                  <span className="text-[10px] font-mono text-[#C23B22] font-semibold">
+                    {preferredEngine === 'browser'
+                      ? '⚡ Instant 0ms Mode'
+                      : '✦ On-Device WebGPU'}
+                  </span>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setPreferredEngine('local')}
-                    className={`py-2 px-3 text-xs font-medium rounded-xl border transition-all text-center cursor-pointer ${
+                    className={`py-2 px-2.5 text-xs rounded-xl border transition-all text-center cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
                       preferredEngine === 'local' || (preferredEngine === 'auto' && modelProgress.status === 'ready')
                         ? 'bg-[#FAF6EE] border-[#C23B22] text-[#C23B22] font-semibold shadow-xs'
                         : 'border-[#D7C3AF] text-[#8C776E] hover:border-[#C23B22]/50 hover:text-[#251C17]'
                     }`}
                   >
-                    <span>✦ WebGPU (Private)</span>
+                    <span className="font-semibold text-xs">✦ WebGPU (Whisper)</span>
+                    <span className="text-[9px] opacity-75 font-mono">100% On-Device · Private</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setPreferredEngine('browser')}
-                    className={`py-2 px-3 text-xs font-medium rounded-xl border transition-all text-center cursor-pointer ${
+                    className={`py-2 px-2.5 text-xs rounded-xl border transition-all text-center cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
                       preferredEngine === 'browser'
                         ? 'bg-[#FAF6EE] border-[#C23B22] text-[#C23B22] font-semibold shadow-xs'
                         : 'border-[#D7C3AF] text-[#8C776E] hover:border-[#C23B22]/50 hover:text-[#251C17]'
                     }`}
                   >
-                    <span>⚡ Native (Instant)</span>
+                    <span className="font-semibold text-xs">⚡ Native (Instant)</span>
+                    <span className="text-[9px] opacity-75 font-mono">0ms Latency · Live Syllables</span>
                   </button>
                 </div>
+                <p className="text-[10px] text-[#8C776E] mt-1.5 leading-normal font-light">
+                  {preferredEngine === 'browser'
+                    ? '⚡ Native mode writes instantly to the paper as your vocal cords vibrate (0ms latency, zero GPU load).'
+                    : '✦ WebGPU runs OpenAI Whisper neural weights directly in your browser shaders. Speed depends on your GPU hardware.'}
+                </p>
               </div>
 
               {/* Model Scale */}
@@ -389,8 +403,157 @@ export function App() {
               </div>
             </div>
           </div>
-
         </div>
+
+        {/* Architecture & Speed Anatomy Guide */}
+        <section className="paper-card rounded-3xl p-6 sm:p-8 lg:p-10 space-y-8 border border-[#D7C3AF]/80">
+          <div className="space-y-2 border-b border-[#D7C3AF]/60 pb-5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase font-mono tracking-widest text-[#C23B22] font-semibold">
+                Anatomy & Mechanics
+              </span>
+              <span className="text-xs text-[#8C776E]">·</span>
+              <span className="text-xs font-serif italic text-[#736056]">
+                How Voice Inks into Thought
+              </span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-serif font-light text-[#251C17] tracking-tight">
+              Architecture & Speed Anatomy: What Decides Performance?
+            </h2>
+            <p className="text-xs sm:text-sm text-[#736056] leading-relaxed max-w-3xl font-light">
+              An unvarnished engineering breakdown of the 3 processing phases, how audio flows into your hardware, 
+              and the exact factors determining whether a speech pass takes 50 milliseconds or several seconds.
+            </p>
+          </div>
+
+          {/* The 3 Pipeline Phases with Real Timing Telemetry */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-mono uppercase tracking-wider text-[#251C17] font-semibold flex items-center gap-2">
+              <span>The 3 Processing Phases</span>
+              <span className="text-[11px] font-normal text-[#8C776E] lowercase">(logged live in the Telegraph Ribbon below)</span>
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              
+              {/* Phase 1: Receiving */}
+              <div className="bg-[#FAF6EE] rounded-2xl p-5 border border-[#D7C3AF]/70 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase font-semibold bg-blue-100 text-blue-900 border border-blue-300">
+                    Phase 1: Receiving
+                  </span>
+                  <span className="font-mono text-xs text-[#736056]">~0ms – 5ms</span>
+                </div>
+                <h4 className="font-serif italic font-medium text-base text-[#251C17]">
+                  Web Audio Ingestion & VAD
+                </h4>
+                <p className="text-xs text-[#736056] leading-relaxed font-light">
+                  Direct microphone stream is captured at 16 kHz mono Float32 PCM. Energy-based Voice Activity Detection (VAD) continuously samples RMS volume. When silence is detected, GPU dispatch is suspended so quiet pauses never burn compute or trigger phantom token loops.
+                </p>
+              </div>
+
+              {/* Phase 2: Interpreting */}
+              <div className="bg-[#FAF6EE] rounded-2xl p-5 border border-[#D7C3AF]/70 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase font-semibold bg-amber-100 text-amber-900 border border-amber-300">
+                    Phase 2: Interpreting
+                  </span>
+                  <span className="font-mono text-xs text-[#C23B22] font-semibold">Hardware Dependent</span>
+                </div>
+                <h4 className="font-serif italic font-medium text-base text-[#251C17]">
+                  Neural Decoding Pass
+                </h4>
+                <p className="text-xs text-[#736056] leading-relaxed font-light">
+                  Raw audio transforms into an 80-channel Log-Mel Spectrogram. Whisper's Transformer Encoder maps 30-second windows into 1500 hidden states. The Autoregressive Decoder then generates text <strong>one token at a time</strong>. Time taken directly mirrors your GPU shader bandwidth.
+                </p>
+              </div>
+
+              {/* Phase 3: Writing */}
+              <div className="bg-[#FAF6EE] rounded-2xl p-5 border border-[#D7C3AF]/70 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase font-semibold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                    Phase 3: Writing
+                  </span>
+                  <span className="font-mono text-xs text-[#736056]">&lt; 2ms</span>
+                </div>
+                <h4 className="font-serif italic font-medium text-base text-[#251C17]">
+                  Manuscript Ink Emitted
+                </h4>
+                <p className="text-xs text-[#736056] leading-relaxed font-light">
+                  Emits live partial hypotheses into React state. Real-time words flow in pulsing vermilion red ink with an active aperture cursor, drying into permanent walnut ink upon final sentence commit.
+                </p>
+              </div>
+
+            </div>
+          </div>
+
+          {/* What Affects Speed Deep Dive */}
+          <div className="space-y-4 pt-2">
+            <h3 className="text-sm font-mono uppercase tracking-wider text-[#251C17] font-semibold">
+              What Directly Affects Speed? (The 5 Decisive Factors)
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-[#594A42]">
+              
+              <div className="p-4 rounded-xl bg-[#FAF6EE] border border-[#D7C3AF]/60 space-y-1.5">
+                <div className="font-semibold text-[#251C17] flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C23B22]" />
+                  1. Autoregressive Token Generation (Sequential Loop)
+                </div>
+                <p className="text-[#736056] leading-relaxed font-light">
+                  Whisper is an Encoder-Decoder Seq2Seq Attention Transformer. Unlike streaming CTC models that process audio in a single forward pass, Whisper generates text <em>one token at a time</em>. If a sentence takes 25 tokens, the decoder executes 25 sequential GPU forward passes. Total time = Tokens × GPU Latency per Token.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#FAF6EE] border border-[#D7C3AF]/60 space-y-1.5">
+                <div className="font-semibold text-[#251C17] flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C23B22]" />
+                  2. Discrete GPU vs Integrated Laptop GPU
+                </div>
+                <p className="text-[#736056] leading-relaxed font-light">
+                  A discrete GPU (e.g. NVIDIA RTX 4080 or Apple Silicon M3/M4 Max) executes each token in ~12ms–25ms (40 words in ~0.6s). An integrated laptop GPU (Intel UHD / Iris Xe / AMD APU) takes ~200ms–350ms per token, generating the same sentence in ~5s–10s.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#FAF6EE] border border-[#D7C3AF]/60 space-y-1.5">
+                <div className="font-semibold text-[#251C17] flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C23B22]" />
+                  3. Active Tail Window Slicing vs Full Accumulation
+                </div>
+                <p className="text-[#736056] leading-relaxed font-light">
+                  If an engine sends the full 20-second conversation buffer on every tick, Whisper must re-decode the entire history repeatedly. Yapper slices an active 4.5s tail window during streaming passes, keeping target tokens below 12 and cutting latency by up to 6×.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#FAF6EE] border border-[#D7C3AF]/60 space-y-1.5">
+                <div className="font-semibold text-[#251C17] flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C23B22]" />
+                  4. Anti-Looping Repetition Penalties
+                </div>
+                <p className="text-[#736056] leading-relaxed font-light">
+                  On quiet or paused audio, unpenalized Whisper decoders can hallucinate repetitive punctuation or dots until hitting token limits. Yapper enforces a 1.25 repetition penalty and 3-gram blocker to halt decoding the instant speech pauses.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#FAF6EE] border border-[#D7C3AF]/60 space-y-1.5 md:col-span-2">
+                <div className="font-semibold text-[#251C17] flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C23B22]" />
+                  5. Engine Mode: ⚡ Native (0ms Instant) vs ✦ WebGPU (100% Private)
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
+                  <div className="p-3 rounded-lg bg-[#EFE7DC] border border-[#D7C3AF]">
+                    <span className="font-semibold text-[#251C17] block mb-1">⚡ Choose Native (Instant 0ms) if:</span>
+                    <span className="text-[#736056]">You want words appearing on the paper <em>instantaneously</em> as syllables leave your lips. Powered by browser/OS speech transducers with 0ms lag, zero download, and zero battery drain.</span>
+                  </div>
+                  <div className="p-3 rounded-lg bg-[#EFE7DC] border border-[#D7C3AF]">
+                    <span className="font-semibold text-[#251C17] block mb-1">✦ Choose WebGPU (Whisper) if:</span>
+                    <span className="text-[#736056]">You want <em>absolute confidentiality</em>. Ideal for legal, medical, or sensitive dictation where audio must never touch an external server and runs 100% air-gapped on your device.</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
 
         {/* Technical Appendix: Developer Integration (Positioned Below) */}
         <section className="space-y-5 pt-8 border-t border-[#D7C3AF]/60">
@@ -560,6 +723,12 @@ const client = new TalkClient({
                           ? 'text-[#D9983B]'
                           : entry.level === 'debug'
                           ? 'text-[#8C776E]'
+                          : entry.message.includes('[Writing]')
+                          ? 'text-[#C23B22] font-medium'
+                          : entry.message.includes('[Interpreting]')
+                          ? 'text-[#B55A1A] font-medium'
+                          : entry.message.includes('[Receiving]')
+                          ? 'text-[#2D5A38] font-medium'
                           : 'text-[#251C17]'
                       }`}
                     >

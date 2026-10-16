@@ -59,6 +59,10 @@ export class EnergyVad {
     }
   }
 
+  public get speaking(): boolean {
+    return this.isSpeaking;
+  }
+
   public reset(): void {
     this.isSpeaking = false;
     this.lastSpeechTimestamp = 0;
