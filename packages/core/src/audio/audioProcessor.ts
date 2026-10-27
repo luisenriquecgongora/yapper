@@ -1,10 +1,121 @@
 /**
  * @yapper/core
- * Audio processing utilities: 16 kHz mono downsampling, safe blob decoding,
- * and audio level metering.
+ * Audio processing utilities: AudioWorklet registration, 16 kHz mono downsampling,
+ * safe blob decoding, and audio level metering.
  */
 
 export const TARGET_SAMPLE_RATE = 16000;
+export const PCM_DOWNSAMPLER_WORKLET_NAME = 'pcm-downsampler-processor';
+
+/**
+ * Raw AudioWorkletProcessor script string for inline Blob URL registration.
+ * Eliminates bundler asset resolution errors in Next.js, Vite, Webpack, and Rollup.
+ */
+export const PCM_DOWNSAMPLER_WORKLET_CODE = `
+class PcmDownsamplerProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.targetSampleRate = 16000;
+    this.inputSampleRate = typeof sampleRate !== 'undefined' ? sampleRate : 48000;
+    this.resampleRatio = this.inputSampleRate / this.targetSampleRate;
+    this.bufferSize = 2048;
+    this.pcmBuffer = new Float32Array(this.bufferSize);
+    this.bufferIndex = 0;
+    this.fractionalOffset = 0;
+
+    this.port.onmessage = (event) => {
+      if (event.data?.command === 'RESET') {
+        this.bufferIndex = 0;
+        this.fractionalOffset = 0;
+      }
+    };
+  }
+
+  process(inputs) {
+    const input = inputs[0];
+    if (!input || input.length === 0) return true;
+
+    const channel0 = input[0];
+    if (!channel0 || channel0.length === 0) return true;
+
+    const frameCount = channel0.length;
+    let monoSamples;
+
+    if (input.length === 1) {
+      monoSamples = channel0;
+    } else {
+      monoSamples = new Float32Array(frameCount);
+      const channel1 = input[1];
+      for (let i = 0; i < frameCount; i++) {
+        monoSamples[i] = (channel0[i] + (channel1 ? channel1[i] : 0)) * 0.5;
+      }
+    }
+
+    let inIdx = this.fractionalOffset;
+    while (inIdx < frameCount) {
+      const idxFloor = Math.floor(inIdx);
+      const idxCeil = Math.min(frameCount - 1, idxFloor + 1);
+      const fraction = inIdx - idxFloor;
+
+      const sample = monoSamples[idxFloor] * (1 - fraction) + monoSamples[idxCeil] * fraction;
+      this.pcmBuffer[this.bufferIndex++] = sample;
+
+      if (this.bufferIndex >= this.bufferSize) {
+        const int16 = new Int16Array(this.bufferSize);
+        for (let j = 0; j < this.bufferSize; j++) {
+          const s = Math.max(-1, Math.min(1, this.pcmBuffer[j]));
+          int16[j] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+
+        const floatCopy = new Float32Array(this.pcmBuffer);
+        this.port.postMessage(
+          {
+            type: 'PCM_DATA',
+            float32: floatCopy,
+            int16: int16.buffer,
+          },
+          [int16.buffer]
+        );
+
+        this.bufferIndex = 0;
+      }
+
+      inIdx += this.resampleRatio;
+    }
+
+    this.fractionalOffset = inIdx - frameCount;
+    return true;
+  }
+}
+
+registerProcessor('${PCM_DOWNSAMPLER_WORKLET_NAME}', PcmDownsamplerProcessor);
+`;
+
+const registeredWorkletContexts = new WeakSet<AudioContext>();
+
+/**
+ * Register the PCM downsampler AudioWorklet with the provided AudioContext.
+ * Uses an inline Blob URL so no asset bundling or static file copying is required.
+ */
+export async function registerPcmWorklet(audioContext: AudioContext): Promise<void> {
+  if (!audioContext || !audioContext.audioWorklet) {
+    throw new Error('AudioWorklet is not supported in this browser or audio context environment.');
+  }
+
+  if (registeredWorkletContexts.has(audioContext)) {
+    return;
+  }
+
+  const blob = new Blob([PCM_DOWNSAMPLER_WORKLET_CODE], { type: 'application/javascript' });
+  const blobUrl = URL.createObjectURL(blob);
+
+  try {
+    await audioContext.audioWorklet.addModule(blobUrl);
+    registeredWorkletContexts.add(audioContext);
+  } finally {
+    URL.revokeObjectURL(blobUrl);
+  }
+}
 
 /** Downsample Float32Array audio from any native sample rate to 16 kHz mono PCM */
 export function downsampleTo16k(input: Float32Array, inputSampleRate: number): Float32Array {

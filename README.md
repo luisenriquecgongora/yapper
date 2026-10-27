@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](https://opensource.org/licenses/MIT)
 [![WebGPU Accelerated](https://img.shields.io/badge/WebGPU-Hardware_Accelerated-emerald.svg)](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API)
-[![Tests Passing](https://img.shields.io/badge/Tests-20_Passed-emerald.svg)](https://vitest.dev)
+[![Tests Passing](https://img.shields.io/badge/Tests-28_Passed-emerald.svg)](https://vitest.dev)
 [![4-bit Quantized](https://img.shields.io/badge/Quantization-4--bit_q4-amber.svg)](https://huggingface.co/onnx-community/whisper-tiny)
 [![Zero Data Retention](https://img.shields.io/badge/Security-Zero_Data_Retention-blue.svg)](#-security--privacy-invariants)
 

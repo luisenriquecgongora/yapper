@@ -1,8 +1,8 @@
 /**
  * @yapper/core
- * Local in-browser Whisper engine using @huggingface/transformers.
+ * Local in-browser Whisper engine offloaded to a dedicated Web Worker.
  * Hardware-accelerated via WebGPU with automatic fallback to WebAssembly (WASM).
- * Optimized with bounded greedy decoding, safe shader compilation, and backoff telemetry.
+ * Isolates neural inference from the main thread to ensure smooth 60 FPS UI rendering.
  */
 
 import { decodeTo16kMono } from '../audio/audioProcessor';
@@ -51,14 +51,22 @@ const HALLUCINATION_REGEX = /^(\[.*\]|\(.*\)|thank you for watching.*|subtitles 
 
 type ProgressListener = (progress: LocalModelDownloadProgress) => void;
 
+interface PendingRequest {
+  resolve: (value: any) => void;
+  reject: (reason?: any) => void;
+}
+
 export class LocalWhisperEngine {
   private _modelSize: ModelSize;
   private modelHost?: string;
-  private pipeline: any = null;
+  private worker: Worker | null = null;
   private loadingPromise: Promise<any> | null = null;
+  private isLoaded: boolean = false;
   private progressListeners = new Set<ProgressListener>();
   private loadFailed: boolean = false;
   private lastLoadError: Error | null = null;
+  private reqSeq: number = 0;
+  private pendingRequests = new Map<string, PendingRequest>();
 
   private state: LocalModelDownloadProgress = {
     status: 'absent',
@@ -77,7 +85,7 @@ export class LocalWhisperEngine {
     // If model was previously downloaded into Cache API, eagerly awaken in background silently
     if (isDownloaded && typeof window !== 'undefined') {
       const autoAwaken = () => {
-        logger.info('model', `Auto-awakening cached pipeline for ${this.modelId} in background...`);
+        logger.info('model', `Auto-awakening cached pipeline for ${this.modelId} in worker...`);
         this.load(false, true).catch((err) => {
           logger.warn('model', `Background pre-warm notice for ${this.modelId}:`, err?.message || err);
         });
@@ -138,8 +146,89 @@ export class LocalWhisperEngine {
     } catch {}
   }
 
+  private getWorker(): Worker {
+    if (this.worker) return this.worker;
+
+    if (typeof Worker === 'undefined') {
+      throw new Error('Web Workers are not supported in this runtime environment.');
+    }
+
+    this.worker = new Worker(
+      new URL('./whisper.worker.ts', import.meta.url),
+      { type: 'module' }
+    );
+
+    this.worker.onmessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data) return;
+
+      switch (data.type) {
+        case 'PROGRESS': {
+          this.updateState({
+            loadedBytes: data.loadedBytes ?? 0,
+            totalBytes: data.totalBytes ?? 0,
+            progress: data.progress ?? 0,
+          });
+          break;
+        }
+
+        case 'INIT_RESULT': {
+          const req = this.pendingRequests.get(data.id);
+          if (req) {
+            this.pendingRequests.delete(data.id);
+            if (data.success) {
+              req.resolve(data);
+            } else {
+              req.reject(new Error(data.error || 'Failed to initialize Whisper worker pipeline'));
+            }
+          }
+          break;
+        }
+
+        case 'TRANSCRIBE_RESULT': {
+          const req = this.pendingRequests.get(data.id);
+          if (req) {
+            this.pendingRequests.delete(data.id);
+            if (data.error) {
+              logger.warn('stt', `Worker transcription notice: ${data.error}`);
+              req.resolve({ text: '', latencyMs: 0 });
+            } else {
+              req.resolve(data);
+            }
+          }
+          break;
+        }
+
+        case 'DISPOSE_RESULT': {
+          const req = this.pendingRequests.get(data.id);
+          if (req) {
+            this.pendingRequests.delete(data.id);
+            req.resolve(true);
+          }
+          break;
+        }
+
+        default:
+          break;
+      }
+    };
+
+    this.worker.onerror = (err) => {
+      logger.error('model', 'Whisper Web Worker unhandled error:', err?.message || err);
+      this.loadFailed = true;
+      this.updateState({ status: 'error' });
+      // Reject any pending requests
+      this.pendingRequests.forEach((req) => {
+        req.reject(new Error(`Whisper Worker error: ${err?.message || 'Worker encountered an error'}`));
+      });
+      this.pendingRequests.clear();
+    };
+
+    return this.worker;
+  }
+
   public async load(isFirstDownload: boolean = false, isSilentBackground: boolean = false): Promise<any> {
-    if (this.pipeline) return this.pipeline;
+    if (this.isLoaded) return true;
     if (this.loadingPromise) return this.loadingPromise;
 
     if (!isSilentBackground || this.state.status !== 'ready') {
@@ -151,121 +240,38 @@ export class LocalWhisperEngine {
       });
     }
 
-    const fileMap = new Map<string, { loaded: number; total: number }>();
-
     this.loadingPromise = (async () => {
-      logger.info('model', `Beginning pipeline load for ${this.modelId}...`);
-      
-      // Dynamic import so transformers.js is only loaded on demand
-      const { pipeline, env } = await import('@huggingface/transformers');
-      env.allowLocalModels = false;
-      if (this.modelHost) {
-        env.remoteHost = this.modelHost.replace(/\/?$/, '/');
-      }
+      logger.info('model', `Beginning worker pipeline load for ${this.modelId}...`);
+      const worker = this.getWorker();
+      const reqId = `init_${Date.now()}_${++this.reqSeq}`;
 
-      const hasGpu = typeof navigator !== 'undefined' && 'gpu' in navigator;
-      let selectedDevice = 'wasm';
-      let selectedDtype: any = 'q8';
-
-      if (hasGpu) {
-        try {
-          const adapter = await (navigator as any).gpu.requestAdapter();
-          if (adapter) {
-            selectedDevice = 'webgpu';
-            const hasFp16 = adapter.features?.has('shader-f16');
-            // Full native half-precision FP16 on WebGPU eliminates per-token q4 dequantization overhead
-            selectedDtype = {
-              encoder_model: hasFp16 ? 'fp16' : 'fp32',
-              decoder_model_merged: hasFp16 ? 'fp16' : 'fp32',
-            };
-            logger.info('hardware', `WebGPU adapter verified. shader-f16: ${!!hasFp16}`);
-          } else {
-            logger.warn('hardware', 'navigator.gpu present but requestAdapter returned null');
-          }
-        } catch (err: any) {
-          logger.warn('hardware', 'Error requesting WebGPU adapter, defaulting to WASM:', err?.message || err);
-        }
-      } else {
-        logger.info('hardware', 'WebGPU not detected in browser navigator. Falling back to WASM CPU.');
-      }
-
-      const progressCb = (event: any) => {
-        if (event?.status !== 'progress' || !event.file) return;
-        fileMap.set(event.file, { loaded: event.loaded ?? 0, total: event.total ?? 0 });
-        let loaded = 0;
-        let total = 0;
-        fileMap.forEach((f) => {
-          loaded += f.loaded;
-          total += f.total;
+      return new Promise((resolve, reject) => {
+        this.pendingRequests.set(reqId, { resolve, reject });
+        worker.postMessage({
+          type: 'INIT',
+          id: reqId,
+          modelId: this.modelId,
+          modelHost: this.modelHost,
         });
-        const fraction = total > 0 ? loaded / total : 0;
-        if (isFirstDownload || !isSilentBackground) {
-          this.updateState({
-            loadedBytes: loaded,
-            totalBytes: total,
-            progress: fraction,
-          });
-        }
-      };
-
-      let asr: any;
-      try {
-        logger.info('model', `Initializing ASR pipeline (${selectedDevice}, dtype: ${JSON.stringify(selectedDtype)})...`);
-        asr = await (pipeline as any)('automatic-speech-recognition', this.modelId, {
-          device: selectedDevice,
-          dtype: selectedDtype,
-          progress_callback: progressCb,
-        });
-        logger.info('model', `ASR pipeline created successfully via ${selectedDevice}`);
-      } catch (primaryErr: any) {
-        logger.warn('model', `ASR initialization with ${selectedDevice} failed: ${primaryErr?.message || primaryErr}. Attempting WASM fallback...`);
-        if (selectedDevice === 'webgpu') {
-          try {
-            selectedDevice = 'wasm';
-            selectedDtype = 'q8';
-            asr = await (pipeline as any)('automatic-speech-recognition', this.modelId, {
-              device: 'wasm',
-              dtype: 'q8',
-              progress_callback: progressCb,
-            });
-            logger.info('model', 'Fallback to WASM pipeline succeeded');
-          } catch (wasmErr: any) {
-            logger.error('model', 'WASM fallback also failed:', wasmErr?.message || wasmErr);
-            throw wasmErr;
-          }
-        } else {
-          throw primaryErr;
-        }
-      }
-
-      // Pre-warm pipeline with a rapid 0.2s dummy pass (1 token max) so WGSL shaders compile ahead of time
-      try {
-        logger.info('model', 'Pre-warming pipeline shaders with 0.2s dummy audio...');
-        const dummyAudio = new Float32Array(3200);
-        await asr(dummyAudio, { task: 'transcribe', max_new_tokens: 1, num_beams: 1, language: 'en' });
-        logger.info('model', 'Pipeline shaders compiled and ready in GPU memory');
-      } catch (warmupErr: any) {
-        logger.debug('model', 'Non-fatal shader warm-up notice:', warmupErr?.message || warmupErr);
-      }
-
-      return asr;
+      });
     })();
 
     return this.loadingPromise.then(
-      (asr) => {
-        this.pipeline = asr;
+      () => {
+        this.isLoaded = true;
         this.loadingPromise = null;
         this.loadFailed = false;
         this.lastLoadError = null;
         this.setDownloadedFlag(true);
         this.updateState({ status: 'ready', progress: 1 });
-        return asr;
+        logger.info('model', `Worker Whisper pipeline ready for ${this.modelId}`);
+        return true;
       },
       (err) => {
         this.loadingPromise = null;
         this.loadFailed = true;
         this.lastLoadError = err;
-        logger.error('model', `Pipeline load failed completely: ${err?.message || err}`);
+        logger.error('model', `Worker pipeline load failed: ${err?.message || err}`);
         if (isFirstDownload) this.setDownloadedFlag(false);
         this.updateState({ status: isFirstDownload ? 'error' : 'absent', progress: 0 });
         throw err;
@@ -288,42 +294,40 @@ export class LocalWhisperEngine {
       return '';
     }
 
-    let asr: any;
     try {
-      asr = await this.load(false);
-    } catch (err) {
-      // Mark as failed so subsequent interval passes do not hammer retries
+      await this.load(false);
+    } catch {
       this.loadFailed = true;
       return '';
     }
 
-    // Resolve ISO 639-1 language code to eliminate language-detection pipeline delay
-    const normalizedLang = language ? (LANGUAGE_CODE_MAP[language.toLowerCase()] || language) : 'en';
+    const worker = this.getWorker();
+    const reqId = `tx_${Date.now()}_${++this.reqSeq}`;
 
-    const options: any = {
-      task: 'transcribe',
-      num_beams: 1,        // Greedy decoding: 5x-10x faster than default beam search
-      max_new_tokens: isInterim ? 12 : 96, // Tightly bounded tokens for interim (~3-4 words) avoids decoder runaway loops
-      do_sample: false,    // Deterministic greedy pass
-      temperature: 0,
-      repetition_penalty: 1.25, // Prevents looping on dots "...." or repetitive phantom tokens on low audio
-      no_repeat_ngram_size: 3,  // Halts autoregressive loop if 3-grams repeat
-      return_timestamps: false,
-      language: normalizedLang,
-    };
-    // Only chunk if audio exceeds 30 seconds
-    if (audio.length > 30 * 16000) {
-      options.chunk_length_s = 30;
-      options.stride_length_s = 5;
-    }
+    // Transfer zero-copy copy to worker
+    const transferBuffer = audio.slice();
 
-    const t0 = performance.now();
+    const resultPromise = new Promise<{ text: string; latencyMs: number; audioDurationSec?: number }>(
+      (resolve, reject) => {
+        this.pendingRequests.set(reqId, { resolve, reject });
+        worker.postMessage(
+          {
+            type: 'TRANSCRIBE_CHUNK',
+            id: reqId,
+            audio: transferBuffer,
+            language,
+            isInterim,
+          },
+          [transferBuffer.buffer]
+        );
+      }
+    );
+
     try {
-      const result = await asr(audio, options);
-      const latencyMs = Math.round(performance.now() - t0);
-      const audioDurationSec = (audio.length / 16000).toFixed(1);
-      const raw = Array.isArray(result) ? result.map((r: any) => r.text).join(' ') : result.text;
-      const clean = (raw || '').trim();
+      const result = await resultPromise;
+      const clean = (result.text || '').trim();
+      const latencyMs = result.latencyMs || 0;
+      const audioDurationSec = result.audioDurationSec || (audio.length / 16000).toFixed(1);
       const approxTokens = clean ? Math.max(1, Math.round(clean.length / 3.8)) : 0;
       const msPerToken = approxTokens > 0 ? Math.round(latencyMs / approxTokens) : latencyMs;
 
@@ -336,23 +340,39 @@ export class LocalWhisperEngine {
       }
       return '';
     } catch (err: any) {
-      logger.warn('stt', `Whisper transcription step notice: ${err?.message || err}`);
+      logger.warn('stt', `Whisper worker transcription step error: ${err?.message || err}`);
       return '';
     }
   }
 
   public async remove(): Promise<void> {
-    this.pipeline = null;
+    if (this.worker) {
+      const reqId = `disp_${Date.now()}_${++this.reqSeq}`;
+      try {
+        await new Promise((resolve, reject) => {
+          this.pendingRequests.set(reqId, { resolve, reject });
+          this.worker?.postMessage({ type: 'DISPOSE', id: reqId });
+          setTimeout(() => resolve(true), 200);
+        });
+      } catch {}
+
+      this.worker.terminate();
+      this.worker = null;
+    }
+
+    this.isLoaded = false;
     this.loadingPromise = null;
     this.loadFailed = false;
     this.lastLoadError = null;
     this.setDownloadedFlag(false);
+
     try {
       if (typeof caches !== 'undefined') {
         await caches.delete(CACHE_NAME);
       }
     } catch {}
+
     this.updateState({ status: 'absent', progress: 0, loadedBytes: 0, totalBytes: 0 });
-    logger.info('model', `Cache released for ${this.modelId}`);
+    logger.info('model', `Cache and worker released for ${this.modelId}`);
   }
 }

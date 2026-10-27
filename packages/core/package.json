@@ -2,11 +2,25 @@
   "name": "@yapper/core",
   "version": "1.0.0",
   "description": "Zero-dependency universal speech-to-text core running on-device WebGPU Whisper, self-healing 0ms Web Speech API, and real-time streaming agreement.",
-  "main": "dist/index.js",
+  "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "build": "tsup",
     "test": "vitest run"
   },
   "keywords": [

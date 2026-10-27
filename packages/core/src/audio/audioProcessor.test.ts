@@ -1,9 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   downsampleTo16k,
   calculateRms,
   float32ToWav,
   getOptimalMimeType,
+  registerPcmWorklet,
+  PCM_DOWNSAMPLER_WORKLET_NAME,
   TARGET_SAMPLE_RATE,
 } from './audioProcessor';
 
@@ -90,6 +92,58 @@ describe('audioProcessor', () => {
   describe('getOptimalMimeType', () => {
     it('returns empty string gracefully when MediaRecorder is undefined', () => {
       expect(getOptimalMimeType()).toBe('');
+    });
+  });
+
+  describe('registerPcmWorklet', () => {
+    it('throws an error if audioWorklet is not supported', async () => {
+      const mockContext = {} as AudioContext;
+      await expect(registerPcmWorklet(mockContext)).rejects.toThrow(
+        'AudioWorklet is not supported in this browser'
+      );
+    });
+
+    it('registers the worklet module and caches the registration', async () => {
+      const originalCreateObjectURL = URL.createObjectURL;
+      const originalRevokeObjectURL = URL.revokeObjectURL;
+
+      const createdUrls: string[] = [];
+      const revokedUrls: string[] = [];
+
+      URL.createObjectURL = vi.fn((_blob: Blob) => {
+        const fakeUrl = 'blob:http://localhost/mock-worklet-' + Math.random();
+        createdUrls.push(fakeUrl);
+        return fakeUrl;
+      });
+      URL.revokeObjectURL = vi.fn((url: string) => {
+        revokedUrls.push(url);
+      });
+
+      const addModuleMock = vi.fn().mockResolvedValue(undefined);
+      const mockContext = {
+        audioWorklet: {
+          addModule: addModuleMock,
+        },
+      } as unknown as AudioContext;
+
+      // First call should register via blob URL
+      await registerPcmWorklet(mockContext);
+      expect(addModuleMock).toHaveBeenCalledTimes(1);
+      expect(createdUrls.length).toBe(1);
+      expect(revokedUrls.length).toBe(1);
+      expect(revokedUrls[0]).toBe(createdUrls[0]);
+
+      // Second call on the same AudioContext should skip because it is cached in WeakSet
+      await registerPcmWorklet(mockContext);
+      expect(addModuleMock).toHaveBeenCalledTimes(1);
+
+      // Restore
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+    });
+
+    it('exposes the standard worklet name', () => {
+      expect(PCM_DOWNSAMPLER_WORKLET_NAME).toBe('pcm-downsampler-processor');
     });
   });
 });

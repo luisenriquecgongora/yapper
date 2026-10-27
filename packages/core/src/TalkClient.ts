@@ -4,7 +4,14 @@
  * Integrated with structured telemetry logs, automatic hardware failover, and bounded greedy streaming.
  */
 
-import { calculateRms, getOptimalMimeType, float32ToWav, downsampleTo16k } from './audio/audioProcessor';
+import {
+  calculateRms,
+  getOptimalMimeType,
+  float32ToWav,
+  downsampleTo16k,
+  registerPcmWorklet,
+  PCM_DOWNSAMPLER_WORKLET_NAME,
+} from './audio/audioProcessor';
 import { EnergyVad } from './audio/energyVad';
 import { BrowserSpeechEngine } from './engines/BrowserSpeechEngine';
 import { CloudStreamEngine } from './engines/CloudStreamEngine';
@@ -26,7 +33,7 @@ export class TalkClient {
   private audioChunks: Blob[] = [];
   private pcmChunks: Float32Array[] = [];
   private audioContext: AudioContext | null = null;
-  private scriptProcessor: ScriptProcessorNode | null = null;
+  private workletNode: AudioWorkletNode | null = null;
   private analyser: AnalyserNode | null = null;
   private animFrameId: number | null = null;
 
@@ -129,7 +136,7 @@ export class TalkClient {
       merged.set(c, offset);
       offset += c.length;
     }
-    const sampleRate = this.audioContext?.sampleRate || 16000;
+    const sampleRate = this.workletNode ? 16000 : (this.audioContext?.sampleRate || 16000);
     return downsampleTo16k(merged, sampleRate);
   }
 
@@ -197,22 +204,24 @@ export class TalkClient {
       const source = this.audioContext.createMediaStreamSource(this.mediaStream);
       source.connect(this.analyser);
 
-      // Raw PCM accumulator via ScriptProcessorNode
+      // Raw PCM accumulator via AudioWorkletNode running on dedicated audio thread
       this.pcmChunks = [];
-      this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
-      this.scriptProcessor.onaudioprocess = (e) => {
-        if (this.currentStatus !== 'listening') return;
-        const channel = e.inputBuffer.getChannelData(0);
-        this.pcmChunks.push(new Float32Array(channel));
-      };
-      source.connect(this.scriptProcessor);
-
-      // Connect through a zero-gain node to destination to keep ScriptProcessor running without feedback
-      const muteGain = this.audioContext.createGain();
-      muteGain.gain.value = 0;
-      this.scriptProcessor.connect(muteGain);
-      muteGain.connect(this.audioContext.destination);
-      logger.debug('audio', `Web Audio processing graph established at ${this.audioContext.sampleRate}Hz`);
+      if ('audioWorklet' in this.audioContext) {
+        try {
+          await registerPcmWorklet(this.audioContext);
+          this.workletNode = new AudioWorkletNode(this.audioContext, PCM_DOWNSAMPLER_WORKLET_NAME);
+          this.workletNode.port.onmessage = (e) => {
+            if (this.currentStatus !== 'listening') return;
+            if (e.data?.type === 'PCM_DATA' && e.data.float32) {
+              this.pcmChunks.push(e.data.float32);
+            }
+          };
+          source.connect(this.workletNode);
+          logger.info('audio', `AudioWorklet decimation node established at ${this.audioContext.sampleRate}Hz`);
+        } catch (workletErr: any) {
+          logger.warn('audio', `AudioWorklet registration notice: ${workletErr?.message || workletErr}`);
+        }
+      }
     }
 
     // Start fallback MediaRecorder
@@ -425,10 +434,10 @@ export class TalkClient {
       cancelAnimationFrame(this.animFrameId);
       this.animFrameId = null;
     }
-    if (this.scriptProcessor) {
-      this.scriptProcessor.onaudioprocess = null;
-      this.scriptProcessor.disconnect();
-      this.scriptProcessor = null;
+    if (this.workletNode) {
+      this.workletNode.port.onmessage = null;
+      this.workletNode.disconnect();
+      this.workletNode = null;
     }
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach((track) => track.stop());
