@@ -1,7 +1,7 @@
 {
   "name": "@yapper/core",
   "version": "1.0.0",
-  "description": "Zero-dependency universal speech-to-text core with in-browser WebGPU Whisper, Web Speech API, and streaming agreement.",
+  "description": "Zero-dependency universal speech-to-text core running on-device WebGPU Whisper, self-healing 0ms Web Speech API, and real-time streaming agreement.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -25,6 +25,7 @@
     "@huggingface/transformers": "^3.3.0 || ^4.0.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "2.1.9",
     "typescript": "^5.4.0",
     "vitest": "^2.0.0"
   }

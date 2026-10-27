@@ -2,7 +2,7 @@
   "name": "yapper",
   "version": "1.0.0",
   "private": true,
-  "description": "Quiet, private real-time speech-to-text SDK running on-device Whisper via WebGPU with instant Web Speech API fallback. 100% in-browser, zero cloud retention, tactile paper stationery UI.",
+  "description": "Intimate, zero-latency speech-to-text SDK running 100% on-device Whisper via WebGPU with self-healing 0ms Web Speech fallback. Zero cloud data retention, real-time decoding telemetry, and tactile letterpress stationery UI.",
   "workspaces": [
     "packages/*",
     "apps/*"

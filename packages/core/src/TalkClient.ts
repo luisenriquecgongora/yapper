@@ -266,6 +266,7 @@ export class TalkClient {
         this.activeSession = this.browserEngine.startSession({
           language: this.options.language,
           onInterim: (text) => {
+            this.lastInterimResult = text;
             const tWriteStart = performance.now();
             this.options.onInterim?.(text);
             const writeMs = Math.round(performance.now() - tWriteStart);
@@ -350,8 +351,6 @@ export class TalkClient {
       } catch {}
     }
 
-    this.cleanupAudio();
-
     // Concurrency guard: await any in-flight interim chunk so WebGPU never chokes on parallel decode passes
     let waitLoops = 0;
     while (this.isProcessingChunk && waitLoops < 25) {
@@ -366,6 +365,9 @@ export class TalkClient {
     try {
       if (engine === 'browser' && session) {
         finalText = await session.stop();
+        if (!finalText && this.lastInterimResult) {
+          finalText = this.lastInterimResult;
+        }
       } else if (engine === 'local') {
         if (finalPcm.length >= 2400) {
           logger.info('stt', `[Interpreting] Executing final full-audio commit pass (${(finalPcm.length / 16000).toFixed(1)}s)...`);
@@ -382,8 +384,12 @@ export class TalkClient {
     } catch (err: any) {
       logger.error('stt', `Error committing final transcript: ${err?.message || err}`);
       this.setStatus('error');
+      this.cleanupAudio();
       throw err;
     }
+
+    // Clean up Web Audio graph and media stream after session has safely committed
+    this.cleanupAudio();
 
     const commitElapsedMs = Math.round(performance.now() - tCommitStart);
     this.setStatus('idle');

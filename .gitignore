@@ -9,6 +9,8 @@ build/
 .vite/
 .turbo/
 .cache/
+coverage/
+*.lcov
 
 # Environment and secrets (Strictly blocked)
 .env

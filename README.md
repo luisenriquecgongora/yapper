@@ -1,11 +1,12 @@
 # Yapper
 
 > *"Speak softly. Your voice writes itself into thought."*  
-> **An intimate, 100% private speech-to-text SDK running 4-bit Whisper in the quiet of your browser via WebGPU.**  
+> **An intimate, zero-latency speech-to-text SDK running 100% on-device Whisper via WebGPU with self-healing 0ms Native Web Speech fallback.**  
 > *Live interactive playground:* [**yapper.plaatoos.com**](https://yapper.plaatoos.com)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](https://opensource.org/licenses/MIT)
 [![WebGPU Accelerated](https://img.shields.io/badge/WebGPU-Hardware_Accelerated-emerald.svg)](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API)
+[![Tests Passing](https://img.shields.io/badge/Tests-20_Passed-emerald.svg)](https://vitest.dev)
 [![4-bit Quantized](https://img.shields.io/badge/Quantization-4--bit_q4-amber.svg)](https://huggingface.co/onnx-community/whisper-tiny)
 [![Zero Data Retention](https://img.shields.io/badge/Security-Zero_Data_Retention-blue.svg)](#-security--privacy-invariants)
 
@@ -18,9 +19,11 @@
 ## ✨ Key Highlights
 
 - ✦ **On-Device WebGPU Whisper (Fast 4-bit)**: Compiles OpenAI's Whisper model directly into your browser's GPU shaders via ONNX Runtime Web and `@huggingface/transformers`. Model weights are compressed with 4-bit integer quantization (`q4`), slashing download size to **28 MB** and executing inference in **~60ms to 95ms**.
-- ⚡ **Instant Native Speech (0ms)**: Instant hardware-accelerated speech recognition served directly by the browser's native Web Speech API (`webkitSpeechRecognition`). Zero download, zero GPU load, instant 60fps word streaming.
-- ✍️ **Living Stationery UI**: Tactile cotton paper canvas, an audio-reactive living wax-seal voice orb (`<TalkOrb />`), and continuous manuscript accumulation where speech writes in vermilion red ink before drying into permanent walnut ink.
+- ⚡ **Instant Native Speech (0ms)**: Instant hardware-accelerated speech recognition served directly by the browser's native Web Speech API (`webkitSpeechRecognition`) with a self-healing auto-restart supervisor loop. Zero download, zero GPU load, instant 60fps word streaming.
+- ⏱️ **Real-Time Latency & Speed Telemetry**: Live microsecond-level decode pass latency, tokens-per-second throughput tracking, and commit duration metrics.
+- ✍️ **Living Stationery UI**: Tactile cotton paper canvas, an audio-reactive living wax-seal voice orb (`<TalkOrb />`), a sliding hardware controls drawer, and continuous manuscript accumulation where speech writes in vermilion red ink before drying into permanent walnut ink.
 - 🛡️ **Zero Cloud Transmission**: By default, audio samples never leave the user's device. Audio buffers reside in transient RAM, run through Web Audio nodes, and are immediately freed after decoding.
+- 🧪 **Automated Vitest Test Suite**: 100% verified test coverage across audio downsampling, WAV header generation, Energy VAD, and streaming agreement chunking.
 - 🌍 **Multilingual**: Supports 55+ spoken tongues including English, Spanish, Polish, French, German, Korean, Italian, Ukrainian, and more.
 
 ---

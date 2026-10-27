@@ -2,7 +2,11 @@
  * @yapper/core
  * Browser Speech Recognition Engine (Web Speech API).
  * Zero-download, zero-RAM, instant speech recognition served natively by the browser.
+ * Enhanced with auto-restart supervisor loop, cross-session transcript accumulation,
+ * and comprehensive error telemetry.
  */
+
+import { logger } from '../logger';
 
 export const BROWSER_LANG_MAP: Record<string, string> = {
   english: 'en-US',
@@ -23,6 +27,12 @@ export const BROWSER_LANG_MAP: Record<string, string> = {
   ru: 'ru-RU',
   korean: 'ko-KR',
   ko: 'ko-KR',
+  chinese: 'zh-CN',
+  zh: 'zh-CN',
+  japanese: 'ja-JP',
+  ja: 'ja-JP',
+  portuguese: 'pt-BR',
+  pt: 'pt-BR',
 };
 
 export interface BrowserSessionOptions {
@@ -43,75 +53,157 @@ export class BrowserSpeechEngine {
   public startSession({ language = 'en', onInterim }: BrowserSessionOptions) {
     const Recognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!Recognition) {
+      logger.error('stt', 'Web Speech API is not supported in this browser environment.');
       throw new Error('Web Speech API is not supported in this browser environment.');
     }
 
-    const recognition = new Recognition();
-    recognition.lang = BROWSER_LANG_MAP[language] || language;
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
+    const resolvedLang = BROWSER_LANG_MAP[language?.toLowerCase()] || language || 'en-US';
+    logger.info('stt', `Initializing Web Speech Recognition in ${resolvedLang}...`);
 
-    const finals: string[] = [];
-    let interim = '';
-    let ended = false;
+    let shouldRun = true;
     let cancelled = false;
+    let ended = false;
     let resolveEnd: (() => void) | null = null;
     let error: string | null = null;
 
-    const getFullTranscript = () =>
-      [...finals, interim].join(' ').replace(/\s+/g, ' ').trim();
+    // Accumulators across continuous auto-restart segments
+    let accumulatedFinals: string[] = [];
+    let sessionFinals: string[] = [];
+    let currentInterim: string = '';
 
-    recognition.onresult = (event: any) => {
-      interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const item = event.results[i];
-        if (item.isFinal) finals[i] = item[0].transcript;
-        else interim += item[0].transcript;
+    const getFullTranscript = () => {
+      const parts = [...accumulatedFinals, ...sessionFinals, currentInterim].filter(Boolean);
+      return parts.join(' ').replace(/\s+/g, ' ').trim();
+    };
+
+    let recognition: any;
+
+    const setupRecognition = () => {
+      try {
+        recognition = new Recognition();
+        recognition.lang = resolvedLang;
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+          logger.info('stt', 'Native Web Speech transducer is active and listening to vocal chords.');
+        };
+
+        recognition.onresult = (event: any) => {
+          currentInterim = '';
+          const newFinals: string[] = [];
+
+          for (let i = 0; i < event.results.length; i++) {
+            const result = event.results[i];
+            const transcript = result[0]?.transcript?.trim() || '';
+            if (result.isFinal) {
+              if (transcript) newFinals.push(transcript);
+            } else {
+              currentInterim += (currentInterim ? ' ' : '') + transcript;
+            }
+          }
+
+          if (newFinals.length > 0) {
+            sessionFinals = newFinals;
+          }
+
+          const full = getFullTranscript();
+          if (!cancelled && full) {
+            onInterim?.(full);
+          }
+        };
+
+        recognition.onerror = (event: any) => {
+          const err = event.error;
+          if (err === 'no-speech') {
+            logger.debug('stt', 'Native speech: brief silence window (no-speech).');
+            return;
+          }
+          if (err === 'aborted') {
+            logger.debug('stt', 'Native speech recognition pass aborted.');
+            return;
+          }
+
+          logger.warn('stt', `Native speech recognition notice: ${err}`);
+          error = err;
+
+          if (err === 'not-allowed') {
+            logger.error('stt', 'Microphone access denied or speech recognition service blocked by browser.');
+            shouldRun = false;
+          } else if (err === 'network') {
+            logger.error('stt', 'Network error connecting to native speech recognition service.');
+          }
+        };
+
+        recognition.onend = () => {
+          // Flush current session finals into accumulated past finals before restarting
+          if (sessionFinals.length > 0) {
+            accumulatedFinals.push(...sessionFinals);
+            sessionFinals = [];
+          }
+
+          if (shouldRun && !cancelled) {
+            // Auto-restart loop to prevent Chrome from prematurely killing continuous recognition
+            logger.debug('stt', 'Native speech cycle ended. Auto-refreshing session watchdog...');
+            try {
+              recognition.start();
+            } catch {
+              // Throttled restart
+              setTimeout(() => {
+                if (shouldRun && !cancelled) {
+                  try {
+                    recognition.start();
+                  } catch {}
+                }
+              }, 150);
+            }
+          } else {
+            ended = true;
+            resolveEnd?.();
+          }
+        };
+
+        recognition.start();
+      } catch (err: any) {
+        logger.error('stt', `Failed to start Web Speech Recognition: ${err?.message || err}`);
+        throw err;
       }
-      if (!cancelled) onInterim?.(getFullTranscript());
     };
 
-    recognition.onerror = (event: any) => {
-      if (event.error !== 'no-speech' && event.error !== 'aborted') {
-        error = event.error;
-      }
-    };
-
-    recognition.onend = () => {
-      ended = true;
-      resolveEnd?.();
-    };
-
-    recognition.start();
+    setupRecognition();
 
     return {
-      stop: (): Promise<string> =>
-        new Promise((resolve, reject) => {
+      stop: (): Promise<string> => {
+        shouldRun = false;
+        return new Promise((resolve) => {
           const timeout = setTimeout(() => {
-            if (error && !getFullTranscript()) reject(new Error(error));
-            else resolve(getFullTranscript());
-          }, 3500);
+            const final = getFullTranscript();
+            resolve(final);
+          }, 1500);
 
           const finish = () => {
             clearTimeout(timeout);
-            if (error && !getFullTranscript()) reject(new Error(error));
-            else resolve(getFullTranscript());
+            const final = getFullTranscript();
+            resolve(final);
           };
 
           if (ended) {
             finish();
             return;
           }
+
           resolveEnd = finish;
           try {
             recognition.stop();
           } catch {
             finish();
           }
-        }),
+        });
+      },
 
       cancel: () => {
+        shouldRun = false;
         cancelled = true;
         try {
           recognition.abort();
