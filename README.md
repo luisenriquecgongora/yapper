@@ -46,11 +46,13 @@
 ```
 yapper/
 ├── packages/
-│   ├── core/      # @yapper/core: Universal framework-agnostic Web Audio & Whisper engine
-│   ├── react/     # @yapper/react: React hooks (useTalk) & living UI components (TalkOrb, LocalModelCard)
-│   └── server/    # @yapper/server: Optional Zero Data Retention cloud gateway proxy
+│   ├── core/           # @yapper/core: Universal framework-agnostic Web Audio & Whisper engine
+│   ├── react/          # @yapper/react: React hooks (useTalk) & living UI components (TalkOrb, LocalModelCard)
+│   └── server/         # @yapper/server: Lightweight Zero Data Retention Node/Express cloud proxy
+├── services/
+│   └── yapper-engine/  # Production async Python 3.12 / FastAPI streaming engine (Silero VAD, Groq/Faster-Whisper, Wispr Flow)
 └── apps/
-    └── showcase/  # Production Vite web application deployed to yapper.plaatoos.com
+    └── showcase/       # Production Vite web application deployed to yapper.plaatoos.com
 ```
 
 ---
