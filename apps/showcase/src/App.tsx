@@ -33,8 +33,28 @@ export function App() {
   const [activeTab, setActiveTab] = useState<'react' | 'vanilla' | 'cloud' | 'commits'>('react');
   const [showCommitsSubrule, setShowCommitsSubrule] = useState<boolean>(false);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState<boolean>(false);
+  const [drawerRendered, setDrawerRendered] = useState<boolean>(false);
+  const [drawerVisible, setDrawerVisible] = useState<boolean>(false);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const [hasWebGpu, setHasWebGpu] = useState<boolean>(false);
+
+  const openSettingsDrawer = () => {
+    setShowSettingsDrawer(true);
+    setDrawerRendered(true);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setDrawerVisible(true);
+      });
+    });
+  };
+
+  const closeSettingsDrawer = () => {
+    setDrawerVisible(false);
+    setTimeout(() => {
+      setDrawerRendered(false);
+      setShowSettingsDrawer(false);
+    }, 300);
+  };
   
   // Continuous manuscript letter accumulator
   const [letterTranscript, setLetterTranscript] = useState<string>('');
@@ -46,13 +66,13 @@ export function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setShowSettingsDrawer(false);
+      if (e.key === 'Escape' && showSettingsDrawer) {
+        closeSettingsDrawer();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [showSettingsDrawer]);
 
   const {
     status,
@@ -246,7 +266,7 @@ export function App() {
           </span>
           <button
             type="button"
-            onClick={() => setShowSettingsDrawer(true)}
+            onClick={openSettingsDrawer}
             className={`px-3 py-1 rounded-full border text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
               showSettingsDrawer
                 ? 'bg-[#251C17] text-[#FAF5EB] border-[#251C17]'
@@ -437,7 +457,7 @@ export function App() {
               {/* Gear Settings Button (Top-Right) */}
               <button
                 type="button"
-                onClick={() => setShowSettingsDrawer(true)}
+                onClick={openSettingsDrawer}
                 className="absolute top-4 right-4 w-8 h-8 rounded-full border border-[#D7C3AF] bg-[#FAF6EE] hover:bg-[#EFE7DC] text-[#736056] hover:text-[#C23B22] flex items-center justify-center transition-all cursor-pointer shadow-xs group z-20"
                 title="Configure Engine Architecture & Model Settings"
                 aria-label="Engine Settings"
@@ -1087,16 +1107,28 @@ const client = new TalkClient({
       </footer>
 
       {/* Engine & Model Configuration Side Drawer */}
-      {showSettingsDrawer && (
-        <div className="fixed inset-0 z-50 overflow-hidden animate-in fade-in duration-200">
-          {/* Backdrop overlay */}
+      {drawerRendered && (
+        <div
+          className="fixed inset-0 z-50 overflow-hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Engine and Model Settings"
+        >
+          {/* Backdrop overlay with fade transition */}
           <div
-            className="absolute inset-0 bg-[#251C17]/40 backdrop-blur-xs transition-opacity"
-            onClick={() => setShowSettingsDrawer(false)}
+            className={`fixed inset-0 bg-[#251C17]/45 backdrop-blur-xs transition-opacity duration-300 ease-out cursor-pointer ${
+              drawerVisible ? 'opacity-100' : 'opacity-0'
+            }`}
+            onClick={closeSettingsDrawer}
           />
 
-          <div className="fixed inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10">
-            <div className="w-screen max-w-md bg-[#F7F3EA] border-l border-[#D7C3AF] shadow-2xl p-6 md:p-8 flex flex-col justify-between overflow-y-auto space-y-6">
+          {/* Sliding Drawer Container */}
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10 pointer-events-none">
+            <div
+              className={`pointer-events-auto w-screen max-w-md bg-[#F7F3EA] border-l border-[#D7C3AF] shadow-[-16px_0_40px_rgba(37,28,23,0.18)] p-6 md:p-8 flex flex-col justify-between overflow-y-auto space-y-6 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform ${
+                drawerVisible ? 'translate-x-0' : 'translate-x-full'
+              }`}
+            >
               
               {/* Drawer Header */}
               <div className="flex items-center justify-between border-b border-[#D7C3AF]/80 pb-4">
@@ -1114,7 +1146,7 @@ const client = new TalkClient({
 
                 <button
                   type="button"
-                  onClick={() => setShowSettingsDrawer(false)}
+                  onClick={closeSettingsDrawer}
                   className="w-8 h-8 rounded-full border border-[#D7C3AF] flex items-center justify-center text-[#8C776E] hover:text-[#C23B22] hover:border-[#C23B22] bg-[#FAF6EE] transition-colors cursor-pointer"
                   title="Close Settings (Esc)"
                 >
@@ -1234,7 +1266,7 @@ const client = new TalkClient({
                 <span>Yapper v{APP_VERSION}</span>
                 <button
                   type="button"
-                  onClick={() => setShowSettingsDrawer(false)}
+                  onClick={closeSettingsDrawer}
                   className="px-4 py-1.5 rounded-xl bg-[#251C17] text-[#FAF5EB] font-sans hover:bg-[#3A2D25] transition-colors cursor-pointer"
                 >
                   Done
