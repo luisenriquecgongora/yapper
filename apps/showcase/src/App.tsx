@@ -30,7 +30,7 @@ export function App() {
   const [modelSize, setModelSize] = useState<ModelSize>('tiny');
   const [language, setLanguage] = useState<string>('english');
   const [preferredEngine, setPreferredEngine] = useState<'auto' | 'local' | 'browser'>('auto');
-  const [activeTab, setActiveTab] = useState<'react' | 'vanilla' | 'cloud' | 'commits'>('react');
+  const [activeTab, setActiveTab] = useState<'react' | 'vanilla' | 'cloud' | 'desktop' | 'commits'>('react');
   const [showCommitsSubrule, setShowCommitsSubrule] = useState<boolean>(false);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState<boolean>(false);
   const [drawerRendered, setDrawerRendered] = useState<boolean>(false);
@@ -306,6 +306,16 @@ export function App() {
             <span>Logs ({logs.length})</span>
           </button>
           <a
+            href="https://releases.plaatoos.com/yapper/latest/Yapper-windows-x64.zip"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C23B22] hover:bg-[#A8321D] text-[#FAF5EB] font-mono text-xs font-medium shadow-xs transition-all cursor-pointer hover:shadow-md"
+            title="Download Yapper Desktop HUD for Windows (64-bit portable)"
+          >
+            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+            <span>Download Desktop</span>
+          </a>
+          <a
             href="https://github.com/luisenriquecgongora/yapper"
             target="_blank"
             rel="noreferrer"
@@ -555,6 +565,22 @@ export function App() {
                   ? 'Streaming instant native words directly from browser hardware.'
                   : `Running private on-device Whisper (${modelSize}) via WebGPU shaders.`}
               </p>
+            </div>
+
+            {/* Desktop App Quick Banner */}
+            <div className="w-full max-w-md mx-auto flex items-center justify-between px-4 py-2 rounded-2xl bg-[#F2EBE0] border border-[#D7C3AF]/80 text-xs font-mono shadow-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">🎙️</span>
+                <span className="text-[#594A42] text-[11px]">Type anywhere in Windows:</span>
+              </div>
+              <a
+                href="https://releases.plaatoos.com/yapper/latest/Yapper-windows-x64.zip"
+                className="inline-flex items-center gap-1 text-[#C23B22] hover:text-[#8C2514] font-semibold text-[11px] hover:underline cursor-pointer"
+                title="Download Yapper for Windows (.zip)"
+              >
+                <span>Get Desktop App</span>
+                <span>↓</span>
+              </a>
             </div>
           </div>
 
@@ -858,6 +884,16 @@ export function App() {
               Zero Data Retention Server
             </button>
             <button
+              onClick={() => setActiveTab('desktop')}
+              className={`px-4 py-2 text-xs font-medium rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'desktop'
+                  ? 'bg-[#C23B22] text-[#FAF5EB] shadow-xs'
+                  : 'text-[#736056] hover:text-[#251C17] hover:bg-[#F2EBE0]'
+              }`}
+            >
+              <span>Desktop App (Windows)</span>
+            </button>
+            <button
               onClick={() => setActiveTab('commits')}
               className={`px-4 py-2 text-xs font-medium rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'commits'
@@ -933,6 +969,43 @@ const client = new TalkClient({
   preferredEngine: 'cloud',
   cloudEndpoint: 'https://your-domain.com/api/transcribe',
 });`}</pre>
+            )}
+
+            {activeTab === 'desktop' && (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#3A2D25] gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#E34A3B] shadow-[0_0_8px_#E34A3B]" />
+                    <span className="text-[#FAF5EB] font-serif italic text-sm">Yapper for Desktop (Wispr Flow style)</span>
+                    <span className="text-[#9E8681]">·</span>
+                    <span className="text-[11px] font-mono text-[#D9983B]">Windows 64-bit Portable</span>
+                  </div>
+                  <a
+                    href="https://releases.plaatoos.com/yapper/latest/Yapper-windows-x64.zip"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#C23B22] hover:bg-[#A8321D] text-[#FAF5EB] font-sans text-xs font-medium transition-colors shadow-xs"
+                  >
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                    <span>Download Yapper (.zip)</span>
+                  </a>
+                </div>
+                <pre>{`# 1. Download & Extract Yapper for Windows
+Download Link: https://releases.plaatoos.com/yapper/latest/Yapper-windows-x64.zip
+Unzip and double-click Yapper.exe (Zero Python or terminal required)
+
+# 2. How to Dictate into Any Application
+1. Click your cursor into VS Code, Notion, Slack, Word, WhatsApp, or Chrome.
+2. Press Ctrl+Shift+Space anywhere in Windows (widget turns red: Listening...).
+3. Speak naturally: "Let's update the deployment schedule, um actually make it Monday morning."
+4. Press Ctrl+Shift+Space again to finish.
+5. Wispr Flow strips fillers, repairs self-corrections, and automatically types into your cursor!
+
+# 3. Optional: Run from Developer Source
+git clone https://github.com/luisenriquecgongora/yapper.git
+cd yapper
+python clients/desktop_hud.py`}</pre>
+              </div>
             )}
 
             {activeTab === 'commits' && (
@@ -1267,6 +1340,33 @@ const client = new TalkClient({
                   onDownload={downloadModel}
                   onRemove={removeModel}
                 />
+
+                {/* 3. Yapper Desktop Floating HUD Card */}
+                <div className="paper-card rounded-2xl p-5 space-y-3 text-[#594A42]">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#C23B22]" />
+                      <span className="text-xs font-serif italic font-medium text-[#251C17]">
+                        Yapper for Desktop
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#FAF6EE] border border-[#D7C3AF] text-[#736056]">
+                      Windows 64-bit
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#736056] leading-relaxed font-light">
+                    Always-on-top floating pill that transcribes and types text directly into VS Code, Notion, Slack, and Word via <code className="bg-[#FAF6EE] px-1 py-0.5 rounded font-mono text-[#C23B22]">Ctrl+Shift+Space</code>.
+                  </p>
+                  <a
+                    href="https://releases.plaatoos.com/yapper/latest/Yapper-windows-x64.zip"
+                    className="w-full py-2 px-3 rounded-xl bg-[#251C17] hover:bg-[#3A2D25] text-[#FAF5EB] text-xs font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
+                  >
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                    <span>Download Desktop App (.zip)</span>
+                  </a>
+                </div>
               </div>
 
               {/* Drawer Footer */}
