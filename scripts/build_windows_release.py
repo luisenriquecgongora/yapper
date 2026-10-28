@@ -98,8 +98,8 @@ def build_release(version: str = "1.0.0") -> Path:
             "1. Double-click Yapper.exe to launch.\n"
             "2. The floating paper pill will appear in the top-right corner.\n"
             "3. Click your cursor into ANY app (VS Code, Notion, Slack, Word, Chrome).\n"
-            "4. Press Ctrl+Shift+Space to start speaking.\n"
-            "5. Press Ctrl+Shift+Space again to stop and automatically paste your text.\n"
+            "4. Click the red orb or press Ctrl+Shift+Space to start speaking.\n"
+            "5. Click the red orb again or press Ctrl+Shift+Space to stop and automatically paste your text.\n"
             "6. Drag the pill anywhere on your screen.\n"
             "==================================================================\n"
         )
@@ -121,11 +121,11 @@ def build_release(version: str = "1.0.0") -> Path:
                 "binary_sha256": exe_sha256,
                 "zip": zip_name,
                 "zip_sha256": zip_sha256,
-                "download_url": f"https://releases.plaatoos.com/yapper/v{version}/{zip_name}",
-                "latest_url": "https://releases.plaatoos.com/yapper/latest/Yapper-windows-x64.zip",
+                "download_url": f"https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/v{version}/{zip_name}",
+                "latest_url": "https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip",
             }
         },
-        "changelog": f"Release v{version}: Ultra-low latency voice dictation with Wispr Flow post-processing.",
+        "changelog": f"Release v{version}: Tactile voice orb record button, live hotkey telemetry, and zero duplicate HUD text.",
     }
 
     manifest_path = DIST_DIR / "version.json"

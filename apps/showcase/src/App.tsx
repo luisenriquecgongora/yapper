@@ -959,9 +959,9 @@ Unzip and double-click Yapper.exe (Zero Python or terminal required)
 
 # 2. How to Dictate into Any Application
 1. Click your cursor into VS Code, Notion, Slack, Word, WhatsApp, or Chrome.
-2. Press Ctrl+Shift+Space anywhere in Windows (widget turns red: Listening...).
+2. Click the red orb on the HUD or press Ctrl+Shift+Space (widget pulses red: Listening...).
 3. Speak naturally: "Let's update the deployment schedule, um actually make it Monday morning."
-4. Press Ctrl+Shift+Space again to finish.
+4. Click the red orb again or press Ctrl+Shift+Space to finish.
 5. Wispr Flow strips fillers, repairs self-corrections, and automatically types into your cursor!
 
 # 3. Optional: Run from Developer Source

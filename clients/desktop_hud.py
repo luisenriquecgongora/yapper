@@ -62,6 +62,7 @@ class YapperDesktopHUD:
         # State management
         self.is_model_ready = False
         self.is_recording = False
+        self._pulse_state = False
         self.audio_frames = []
         self.audio_stream: Optional[sd.InputStream] = None
         self.kbd_controller = keyboard.Controller()
@@ -97,16 +98,41 @@ class YapperDesktopHUD:
         )
         self.card.pack(fill="both", expand=True)
 
-        # Left: Wax seal orb dot indicator
-        self.orb_indicator = tk.Canvas(
+        # Left: Interactive Red Wax Seal Voice Orb Button & Indicator
+        self.orb_btn = tk.Canvas(
             self.card,
-            width=18,
-            height=18,
+            width=26,
+            height=26,
             bg="#FAF6EE",
             highlightthickness=0,
+            cursor="hand2",
         )
-        self.orb_indicator.pack(side="left", padx=(0, 8))
-        self.orb_circle = self.orb_indicator.create_oval(2, 2, 16, 16, fill="#D9983B", outline="#B57A22", width=1)
+        self.orb_btn.pack(side="left", padx=(0, 10))
+        self.orb_circle = self.orb_btn.create_oval(
+            3, 3, 23, 23,
+            fill="#D9983B",
+            outline="#B57A22",
+            width=1.5,
+        )
+        # Inner stop square icon (visible only while recording)
+        self.orb_stop_icon = self.orb_btn.create_rectangle(
+            9, 9, 17, 17,
+            fill="#FAF6EE",
+            outline="",
+            state="hidden",
+        )
+        self.orb_btn.bind("<Button-1>", lambda e: self.toggle_recording())
+
+        def _on_orb_enter(e):
+            if self.is_model_ready and not self.is_recording:
+                self.orb_btn.itemconfig(self.orb_circle, fill="#E34A3B", outline="#C23B22")
+
+        def _on_orb_leave(e):
+            if self.is_model_ready and not self.is_recording:
+                self.orb_btn.itemconfig(self.orb_circle, fill="#C23B22", outline="#8C2514")
+
+        self.orb_btn.bind("<Enter>", _on_orb_enter)
+        self.orb_btn.bind("<Leave>", _on_orb_leave)
 
         # Center: Status text
         self.text_frame = tk.Frame(self.card, bg="#FAF6EE")
@@ -132,22 +158,7 @@ class YapperDesktopHUD:
         )
         self.status_label.pack(anchor="w")
 
-        # Right: Hotkey badge button
-        self.hotkey_btn = tk.Label(
-            self.card,
-            text="Warming...",
-            font=("Consolas", 8, "bold"),
-            fg="#FAF6EE",
-            bg="#5C4D44",
-            padx=6,
-            pady=2,
-            relief="flat",
-            cursor="hand2",
-        )
-        self.hotkey_btn.pack(side="right", padx=(4, 0))
-        self.hotkey_btn.bind("<Button-1>", lambda e: self.toggle_recording())
-
-        # Close button
+        # Right: Close button
         self.close_btn = tk.Label(
             self.card,
             text="✕",
@@ -155,9 +166,36 @@ class YapperDesktopHUD:
             fg="#8C776E",
             bg="#FAF6EE",
             cursor="hand2",
+            padx=2,
         )
-        self.close_btn.pack(side="right", padx=(0, 4))
+        self.close_btn.pack(side="right", padx=(2, 0))
         self.close_btn.bind("<Button-1>", lambda e: self.quit_app())
+
+        # Right: Hotkey shortcut badge (tactile keycap pill)
+        self.hotkey_btn = tk.Label(
+            self.card,
+            text=DEFAULT_HOTKEY_LABEL,
+            font=("Consolas", 8),
+            fg="#736056",
+            bg="#EFE7DC",
+            padx=7,
+            pady=2,
+            relief="flat",
+            cursor="hand2",
+        )
+        self.hotkey_btn.pack(side="right", padx=(4, 4))
+        self.hotkey_btn.bind("<Button-1>", lambda e: self.toggle_recording())
+
+        def _on_badge_enter(e):
+            if not self.is_recording:
+                self.hotkey_btn.config(bg="#E5DCCE", fg="#251C17")
+
+        def _on_badge_leave(e):
+            if not self.is_recording:
+                self.hotkey_btn.config(bg="#EFE7DC", fg="#736056")
+
+        self.hotkey_btn.bind("<Enter>", _on_badge_enter)
+        self.hotkey_btn.bind("<Leave>", _on_badge_leave)
 
     def _bind_drag_events(self) -> None:
         """Allow dragging the floating pill anywhere on screen."""
@@ -227,10 +265,11 @@ class YapperDesktopHUD:
     def _set_model_ready(self) -> None:
         """Transition widget to active, ready state."""
         self.is_model_ready = True
-        self.orb_indicator.itemconfig(self.orb_circle, fill="#C23B22", outline="#8C2514")
+        self.orb_btn.itemconfig(self.orb_circle, fill="#C23B22", outline="#8C2514")
+        self.orb_btn.itemconfigure(self.orb_stop_icon, state="hidden")
         self.title_label.config(text="Yapper", fg="#251C17")
-        self.status_label.config(text=f"Press {DEFAULT_HOTKEY_LABEL} to Speak")
-        self.hotkey_btn.config(text=DEFAULT_HOTKEY_LABEL, bg="#3A2D25")
+        self.status_label.config(text="Click orb to start")
+        self.hotkey_btn.config(text=DEFAULT_HOTKEY_LABEL, bg="#EFE7DC", fg="#736056")
 
     def _on_hotkey_triggered(self) -> None:
         """Triggered when hotkey is pressed anywhere on Windows."""
@@ -253,11 +292,13 @@ class YapperDesktopHUD:
         self.is_recording = True
         self.audio_frames = []
 
-        # Update visual UI state
-        self.orb_indicator.itemconfig(self.orb_circle, fill="#E34A3B", outline="#FF6B5B")
+        # Update visual UI state: red circle with stop square, pulsing
+        self.orb_btn.itemconfig(self.orb_circle, fill="#E34A3B", outline="#FF6B5B")
+        self.orb_btn.itemconfigure(self.orb_stop_icon, state="normal")
         self.title_label.config(text="Listening...", fg="#C23B22")
-        self.status_label.config(text=f"Speak aloud • {DEFAULT_HOTKEY_LABEL} to finish")
-        self.hotkey_btn.config(bg="#C23B22")
+        self.status_label.config(text="Speak aloud • Click orb to stop")
+        self.hotkey_btn.config(bg="#FCEBE9", fg="#C23B22")
+        self._start_recording_pulse()
 
         try:
             self.audio_stream = sd.InputStream(
@@ -273,6 +314,20 @@ class YapperDesktopHUD:
             logger.error("Failed to open audio input device: %s", exc)
             self.status_label.config(text="Mic Error!")
             self.is_recording = False
+            self.orb_btn.itemconfigure(self.orb_stop_icon, state="hidden")
+
+    def _start_recording_pulse(self) -> None:
+        self._pulse_state = False
+        self._pulse_tick()
+
+    def _pulse_tick(self) -> None:
+        if not self.is_recording:
+            return
+        self._pulse_state = not self._pulse_state
+        fill_col = "#E34A3B" if self._pulse_state else "#C23B22"
+        outline_col = "#FF6B5B" if self._pulse_state else "#8C2514"
+        self.orb_btn.itemconfig(self.orb_circle, fill=fill_col, outline=outline_col)
+        self.root.after(450, self._pulse_tick)
 
     def _audio_callback(self, indata, frames, time_info, status) -> None:
         if self.is_recording:
@@ -290,10 +345,11 @@ class YapperDesktopHUD:
             self.audio_stream = None
 
         # Update UI state to processing
-        self.orb_indicator.itemconfig(self.orb_circle, fill="#D9983B", outline="#F2B75B")
+        self.orb_btn.itemconfigure(self.orb_stop_icon, state="hidden")
+        self.orb_btn.itemconfig(self.orb_circle, fill="#D9983B", outline="#B57A22")
         self.title_label.config(text="Flow Inking...", fg="#D9983B")
-        self.status_label.config(text="Transcribing & cleaning...")
-        self.hotkey_btn.config(bg="#3A2D25")
+        self.status_label.config(text="Transcribing & typing...")
+        self.hotkey_btn.config(bg="#EFE7DC", fg="#736056")
 
         # Process in background thread so GUI doesn't freeze
         threading.Thread(target=self._process_and_paste_pipeline, daemon=True).start()
@@ -408,10 +464,11 @@ class YapperDesktopHUD:
 
     def _reset_ui_idle(self) -> None:
         """Reset widget visual indicators to idle ready state."""
-        self.orb_indicator.itemconfig(self.orb_circle, fill="#C23B22", outline="#8C2514")
+        self.orb_btn.itemconfigure(self.orb_stop_icon, state="hidden")
+        self.orb_btn.itemconfig(self.orb_circle, fill="#C23B22", outline="#8C2514")
         self.title_label.config(text="Yapper", fg="#251C17")
-        self.status_label.config(text=f"Press {DEFAULT_HOTKEY_LABEL} to Speak")
-        self.hotkey_btn.config(text=DEFAULT_HOTKEY_LABEL, bg="#3A2D25")
+        self.status_label.config(text="Click orb to start")
+        self.hotkey_btn.config(text=DEFAULT_HOTKEY_LABEL, bg="#EFE7DC", fg="#736056")
 
     def quit_app(self) -> None:
         """Clean shutdown."""
