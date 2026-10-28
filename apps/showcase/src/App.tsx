@@ -26,7 +26,11 @@ function parseCommitType(msg: string): { type: string; title: string; colorClass
   return { type: 'commit', title: msg, colorClass: 'bg-[#FAF6EE] text-[#594A42] border-[#D7C3AF]' };
 }
 
+const WINDOWS_RELEASE_URL = "https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip";
+const MACOS_RELEASE_URL = "https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-macos.zip";
+
 export function App() {
+  const [userOS, setUserOS] = useState<'mac' | 'windows' | 'linux'>('windows');
   const [modelSize, setModelSize] = useState<ModelSize>('tiny');
   const [language, setLanguage] = useState<string>('english');
   const [preferredEngine, setPreferredEngine] = useState<'auto' | 'local' | 'browser'>('auto');
@@ -42,6 +46,26 @@ export function App() {
 
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const [hasWebGpu, setHasWebGpu] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined') {
+      const ua = navigator.userAgent.toLowerCase();
+      const platform = (navigator as any).userAgentData?.platform?.toLowerCase() || '';
+      if (platform.includes('mac') || ua.includes('mac') || ua.includes('darwin') || ua.includes('iphone') || ua.includes('ipad')) {
+        setUserOS('mac');
+      } else if (platform.includes('linux') || ua.includes('linux')) {
+        setUserOS('linux');
+      } else {
+        setUserOS('windows');
+      }
+    }
+  }, []);
+
+  const primaryDownloadUrl = userOS === 'mac' ? MACOS_RELEASE_URL : WINDOWS_RELEASE_URL;
+  const secondaryDownloadUrl = userOS === 'mac' ? WINDOWS_RELEASE_URL : MACOS_RELEASE_URL;
+  const primaryOsLabel = userOS === 'mac' ? 'macOS (Apple Silicon & Intel)' : 'Windows (64-bit)';
+  const secondaryOsLabel = userOS === 'mac' ? 'Windows (.zip)' : 'macOS (.zip)';
+  const defaultHotkeyLabel = userOS === 'mac' ? 'Cmd+Shift+Space' : 'Ctrl+Shift+Space';
 
   const openSettingsDrawer = () => {
     // If menu was open, close it
@@ -534,14 +558,16 @@ export function App() {
             <div className="w-full max-w-md mx-auto flex items-center justify-between px-4 py-2 rounded-2xl bg-[#F2EBE0] border border-[#D7C3AF]/80 text-xs font-mono shadow-xs">
               <div className="flex items-center gap-2">
                 <span className="text-sm">🎙️</span>
-                <span className="text-[#594A42] text-[11px]">Type anywhere in Windows:</span>
+                <span className="text-[#594A42] text-[11px]">
+                  {userOS === 'mac' ? 'Type anywhere in macOS:' : 'Type anywhere in Windows:'}
+                </span>
               </div>
               <a
-                href="https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip"
+                href={primaryDownloadUrl}
                 className="inline-flex items-center gap-1 text-[#C23B22] hover:text-[#8C2514] font-semibold text-[11px] hover:underline cursor-pointer"
-                title="Download Yapper for Windows (.zip)"
+                title={`Download Yapper for ${userOS === 'mac' ? 'macOS' : 'Windows'} (.zip)`}
               >
-                <span>Get Desktop App</span>
+                <span>{userOS === 'mac' ? 'Get Mac App' : 'Get Desktop App'}</span>
                 <span>↓</span>
               </a>
             </div>
@@ -941,30 +967,61 @@ const client = new TalkClient({
                     <span className="w-2 h-2 rounded-full bg-[#E34A3B] shadow-[0_0_8px_#E34A3B]" />
                     <span className="text-[#FAF5EB] font-serif italic text-sm">Yapper for Desktop (Wispr Flow style)</span>
                     <span className="text-[#9E8681]">·</span>
-                    <span className="text-[11px] font-mono text-[#D9983B]">Windows 64-bit Portable</span>
+                    <span className="text-[11px] font-mono text-[#D9983B]">{primaryOsLabel}</span>
                   </div>
-                  <a
-                    href="https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#C23B22] hover:bg-[#A8321D] text-[#FAF5EB] font-sans text-xs font-medium transition-colors shadow-xs"
-                  >
-                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                    <span>Download Yapper (.zip)</span>
-                  </a>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={primaryDownloadUrl}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#C23B22] hover:bg-[#A8321D] text-[#FAF5EB] font-sans text-xs font-medium transition-colors shadow-xs"
+                      title={`Download Yapper for ${userOS === 'mac' ? 'macOS' : 'Windows'}`}
+                    >
+                      <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                      <span>Download for {userOS === 'mac' ? 'Mac' : 'Windows'} (.zip)</span>
+                    </a>
+                    <a
+                      href={secondaryDownloadUrl}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-[#5C4D44] hover:border-[#C23B22] text-[#D7C3AF] font-mono text-[11px] transition-colors"
+                      title={`Download for ${secondaryOsLabel}`}
+                    >
+                      <span>{userOS === 'mac' ? 'Windows' : 'Mac'} (.zip)</span>
+                    </a>
+                  </div>
                 </div>
-                <pre>{`# 1. Download & Extract Yapper for Windows
-Download Link: https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip
+                <pre>{userOS === 'mac' ? `# 1. Download & Extract Yapper for macOS (Apple Silicon & Intel)
+Download Link: ${MACOS_RELEASE_URL}
+Unzip and double-click Yapper.command
+
+# 2. Permissions (One-Time macOS Setup)
+Allow Terminal/Python in System Settings -> Privacy & Security:
+• Accessibility (for global ${defaultHotkeyLabel} trigger)
+• Input Monitoring
+• Microphone
+
+# 3. How to Dictate into Any Mac Application
+1. Click your cursor into VS Code, Notion, Slack, Obsidian, Notes, or Safari.
+2. Click the red orb or press ${defaultHotkeyLabel} (widget pulses red: Listening...).
+3. Speak naturally.
+4. Click the orb again or press ${defaultHotkeyLabel} to finish and ink!
+5. Click 'Cancel' or press Esc at any time to discard without typing.
+
+# 4. Also Available for Windows (64-bit portable)
+Download Link: ${WINDOWS_RELEASE_URL}` : `# 1. Download & Extract Yapper for Windows
+Download Link: ${WINDOWS_RELEASE_URL}
 Unzip and double-click Yapper.exe (Zero Python or terminal required)
 
 # 2. How to Dictate into Any Application
 1. Click your cursor into VS Code, Notion, Slack, Word, WhatsApp, or Chrome.
-2. Click the red orb on the HUD or press Ctrl+Shift+Space (widget pulses red: Listening...).
+2. Click the red orb on the HUD or press ${defaultHotkeyLabel} (widget pulses red: Listening...).
 3. Speak naturally: "Let's update the deployment schedule, um actually make it Monday morning."
-4. Click the red orb again or press Ctrl+Shift+Space to finish.
-5. Wispr Flow strips fillers, repairs self-corrections, and automatically types into your cursor!
+4. Click the red orb again or press ${defaultHotkeyLabel} to finish.
+5. Click 'Cancel' or press Esc at any time to discard without typing!
 
-# 3. Optional: Run from Developer Source
+# 3. Also Available for macOS (Apple Silicon & Intel)
+Download Link: ${MACOS_RELEASE_URL}
+
+# 4. Optional: Run from Developer Source
 git clone https://github.com/luisenriquecgongora/yapper.git
 cd yapper
 python clients/desktop_hud.py`}</pre>
@@ -1217,22 +1274,31 @@ python clients/desktop_hud.py`}</pre>
                       </span>
                     </div>
                     <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#FAF6EE] border border-[#D7C3AF] text-[#736056]">
-                      Windows 64-bit
+                      {primaryOsLabel}
                     </span>
                   </div>
                   <p className="text-[11px] text-[#736056] leading-relaxed font-light">
-                    Always-on-top floating pill that transcribes and inks text directly into VS Code, Notion, Slack, and Word via <code className="bg-[#FAF6EE] px-1 py-0.5 rounded font-mono text-[#C23B22]">Ctrl+Shift+Space</code>.
+                    Always-on-top floating pill that transcribes and inks text directly into VS Code, Notion, Slack, and Word via <code className="bg-[#FAF6EE] px-1 py-0.5 rounded font-mono text-[#C23B22]">{defaultHotkeyLabel}</code>.
                   </p>
                   <a
-                    href="https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip"
+                    href={primaryDownloadUrl}
                     className="w-full py-2.5 px-3 rounded-xl bg-[#C23B22] hover:bg-[#A8321D] text-[#FAF5EB] text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs hover:shadow-md"
-                    title="Download Yapper Desktop HUD for Windows (64-bit portable)"
+                    title={`Download Yapper Desktop HUD for ${userOS === 'mac' ? 'macOS' : 'Windows'}`}
                   >
                     <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
-                    <span>Download Desktop App (.zip)</span>
+                    <span>Download for {userOS === 'mac' ? 'Mac (Apple Silicon & Intel)' : 'Windows (64-bit)'}</span>
                   </a>
+                  <div className="flex items-center justify-between text-[10px] font-mono text-[#8C776E] pt-1 border-t border-[#D7C3AF]/40">
+                    <span>Alternative OS:</span>
+                    <a
+                      href={secondaryDownloadUrl}
+                      className="text-[#594A42] hover:text-[#C23B22] underline cursor-pointer"
+                    >
+                      Download for {secondaryOsLabel}
+                    </a>
+                  </div>
                 </div>
 
                 {/* 2. Quick Settings Shortcut Card */}

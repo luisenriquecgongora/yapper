@@ -84,6 +84,14 @@ def publish_release(version: str = "1.0.0", prefix: str = "yapper") -> None:
         (manifest_file, f"{latest_dir}/version.json", "application/json", "no-cache, must-revalidate"),
     ]
 
+    # Include macOS release bundles if present
+    mac_zip_file = DIST_DIR / f"Yapper-v{version}-macos.zip"
+    if mac_zip_file.exists():
+        uploads.extend([
+            (mac_zip_file, f"{version_dir}/{mac_zip_file.name}", "application/zip", "public, max-age=31536000, immutable"),
+            (mac_zip_file, f"{latest_dir}/Yapper-macos.zip", "application/zip", "public, max-age=300"),
+        ])
+
     logger.info("Uploading %d release objects to s3://%s/%s...", len(uploads), bucket, prefix)
 
     for src_path, target_key, mime_type, cache_ctrl in uploads:

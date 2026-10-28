@@ -32,9 +32,18 @@ logger = logging.getLogger("yapper.hud")
 ENGINE_HTTP_URL = os.environ.get("YAPPER_ENGINE_URL", "http://localhost:8000")
 SAMPLE_RATE = 16000
 
-# Collision-free default hotkey: Ctrl+Shift+Space (avoids clashing with Windows Alt+Space window menu)
-DEFAULT_HOTKEY = os.environ.get("YAPPER_HOTKEY", "<ctrl>+<shift>+<space>")
-DEFAULT_HOTKEY_LABEL = os.environ.get("YAPPER_HOTKEY_LABEL", "Ctrl+Shift+Space")
+# OS Platform detection
+IS_MAC = sys.platform == "darwin"
+
+# Collision-free default hotkey:
+# macOS: Cmd+Shift+Space (avoids Spotlight on Cmd+Space)
+# Windows/Linux: Ctrl+Shift+Space (avoids Windows window menu on Alt+Space)
+if IS_MAC:
+    DEFAULT_HOTKEY = os.environ.get("YAPPER_HOTKEY", "<cmd>+<shift>+<space>")
+    DEFAULT_HOTKEY_LABEL = os.environ.get("YAPPER_HOTKEY_LABEL", "Cmd+Shift+Space")
+else:
+    DEFAULT_HOTKEY = os.environ.get("YAPPER_HOTKEY", "<ctrl>+<shift>+<space>")
+    DEFAULT_HOTKEY_LABEL = os.environ.get("YAPPER_HOTKEY_LABEL", "Ctrl+Shift+Space")
 
 
 class YapperDesktopHUD:
@@ -70,6 +79,9 @@ class YapperDesktopHUD:
         # Build visual layout
         self._build_ui()
         self._bind_drag_events()
+
+        # Keyboard escape cancels recording or closes HUD
+        self.root.bind("<Escape>", lambda e: self.cancel_recording() if self.is_recording else self.quit_app())
 
         # Start global keyboard listener in background thread
         self._start_global_hotkey_listener()
@@ -181,6 +193,31 @@ class YapperDesktopHUD:
         self.close_btn.bind("<Enter>", _on_close_enter)
         self.close_btn.bind("<Leave>", _on_close_leave)
 
+        # Right: Cancel recording button (visible only while recording)
+        self.cancel_btn = tk.Label(
+            self.card,
+            text="Cancel",
+            font=("Segoe UI", 8),
+            fg="#736056",
+            bg="#FAF6EE",
+            activebackground="#FCEBE9",
+            activeforeground="#C23B22",
+            cursor="hand2",
+            padx=5,
+            pady=1,
+            relief="flat",
+        )
+        self.cancel_btn.bind("<Button-1>", lambda e: self.cancel_recording())
+
+        def _on_cancel_enter(e):
+            self.cancel_btn.config(fg="#C23B22", bg="#FCEBE9")
+
+        def _on_cancel_leave(e):
+            self.cancel_btn.config(fg="#736056", bg="#FAF6EE")
+
+        self.cancel_btn.bind("<Enter>", _on_cancel_enter)
+        self.cancel_btn.bind("<Leave>", _on_cancel_leave)
+
     def _bind_drag_events(self) -> None:
         """Allow dragging the floating pill anywhere on screen."""
         for widget in (self.container, self.card, self.title_label, self.status_label, self.text_frame):
@@ -280,6 +317,7 @@ class YapperDesktopHUD:
         self.orb_btn.itemconfigure(self.orb_stop_icon, state="normal")
         self.title_label.config(text="Listening...", fg="#C23B22")
         self.status_label.config(text=f"{DEFAULT_HOTKEY_LABEL} to stop")
+        self.cancel_btn.pack(side="right", padx=(2, 4))
         self._start_recording_pulse()
 
         try:
@@ -315,11 +353,37 @@ class YapperDesktopHUD:
         if self.is_recording:
             self.audio_frames.append(indata.copy())
 
+    def cancel_recording(self) -> None:
+        """Discard audio buffer and abort transcription immediately without typing."""
+        if not self.is_recording:
+            return
+        logger.info("Recording cancelled by user. Discarding audio buffer.")
+        self.is_recording = False
+        self.cancel_btn.pack_forget()
+
+        if self.audio_stream:
+            try:
+                self.audio_stream.stop()
+                self.audio_stream.close()
+            except Exception:
+                pass
+            self.audio_stream = None
+
+        self.audio_frames = []
+
+        # Visual feedback: flash 'Cancelled'
+        self.orb_btn.itemconfigure(self.orb_stop_icon, state="hidden")
+        self.orb_btn.itemconfig(self.orb_circle, fill="#8C776E", outline="#5C4D44")
+        self.title_label.config(text="Yapper", fg="#251C17")
+        self.status_label.config(text="Cancelled")
+        self.root.after(700, self._reset_ui_idle)
+
     def stop_recording(self) -> None:
         """Stop capture and dispatch to transcription backend."""
         if not self.is_recording:
             return
         self.is_recording = False
+        self.cancel_btn.pack_forget()
 
         if self.audio_stream:
             self.audio_stream.stop()
@@ -423,10 +487,11 @@ class YapperDesktopHUD:
                 # Fire paste simulation after small yield
                 def _do_paste():
                     try:
-                        self.kbd_controller.press(keyboard.Key.ctrl)
+                        paste_modifier = keyboard.Key.cmd if IS_MAC else keyboard.Key.ctrl
+                        self.kbd_controller.press(paste_modifier)
                         self.kbd_controller.press('v')
                         self.kbd_controller.release('v')
-                        self.kbd_controller.release(keyboard.Key.ctrl)
+                        self.kbd_controller.release(paste_modifier)
                         logger.info("Successfully inked text into active application cursor.")
                     except Exception as paste_err:
                         logger.error("Paste simulation error: %s", paste_err)
@@ -445,6 +510,7 @@ class YapperDesktopHUD:
 
     def _reset_ui_idle(self) -> None:
         """Reset widget visual indicators to idle ready state."""
+        self.cancel_btn.pack_forget()
         self.orb_btn.itemconfigure(self.orb_stop_icon, state="hidden")
         self.orb_btn.itemconfig(self.orb_circle, fill="#C23B22", outline="#8C2514")
         self.title_label.config(text="Yapper", fg="#251C17")
@@ -464,13 +530,15 @@ class YapperDesktopHUD:
 
 
 if __name__ == "__main__":
+    os_name = "macOS" if IS_MAC else "Windows"
     print("==================================================================")
-    print(" 🎙️ YAPPER DESKTOP VOICE HUD (Wispr Flow style)")
+    print(f" 🎙️ YAPPER DESKTOP VOICE HUD ({os_name} · Wispr Flow style)")
     print("==================================================================")
     print(" • Widget will float in top-right of your screen.")
     print(" • Click anywhere in VS Code, Notion, Slack, Word, or Chrome.")
-    print(f" • Press {DEFAULT_HOTKEY_LABEL} anywhere on Windows to speak.")
+    print(f" • Press {DEFAULT_HOTKEY_LABEL} anywhere on {os_name} to speak.")
     print(f" • Press {DEFAULT_HOTKEY_LABEL} again to stop and automatically type!")
+    print(" • Click 'Cancel' or press Esc while recording to abort.")
     print(" • Drag the widget anywhere on your screen.")
     print("==================================================================")
     hud = YapperDesktopHUD()

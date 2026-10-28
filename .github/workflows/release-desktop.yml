@@ -48,6 +48,10 @@ jobs:
         run: |
           python scripts/build_windows_release.py --version ${{ env.VERSION }}
 
+      - name: Package macOS Universal Release Bundle
+        run: |
+          python scripts/build_macos_release.py --version ${{ env.VERSION }}
+
       - name: Publish Release to Cloudflare R2
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
@@ -65,6 +69,8 @@ jobs:
           files: |
             dist/Yapper.exe
             dist/Yapper-v${{ env.VERSION }}-windows-x64.zip
+            dist/Yapper-v${{ env.VERSION }}-macos.zip
+            dist/Yapper-macos.zip
             dist/version.json
           generate_release_notes: true
           draft: false
