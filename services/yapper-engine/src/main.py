@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api.health import router as health_router
+from .api.transcribe import router as transcribe_router
 from .api.websocket import router as ws_router
 from .config import settings
 
@@ -43,6 +44,7 @@ app.add_middleware(
 
 # Mount routes
 app.include_router(health_router)
+app.include_router(transcribe_router)
 app.include_router(ws_router)
 
 
