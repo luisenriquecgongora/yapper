@@ -220,16 +220,8 @@ export function App() {
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#C23B22] to-[#E34A3B] flex items-center justify-center text-[#FAF5EB] font-serif italic text-base shadow-[0_2px_8px_rgba(194,59,34,0.35)] select-none">
             y
           </div>
-          <div className="flex flex-col">
-            <span className="font-serif italic font-medium text-xl tracking-tight text-[#251C17] leading-none">
-              Yapper
-            </span>
-            <span className="text-[10px] uppercase font-mono tracking-widest text-[#8C776E] pt-0.5">
-              Beautiful Handwritten Letters · Series IV
-            </span>
-          </div>
-          <span className="hidden sm:inline-flex text-[11px] px-2.5 py-0.5 rounded-full bg-[#EFE7DC] text-[#736056] border border-[#D7C3AF]/70 font-mono">
-            yapper.plaatoos.com
+          <span className="font-serif italic font-medium text-xl tracking-tight text-[#251C17] leading-none">
+            Yapper
           </span>
         </div>
 
