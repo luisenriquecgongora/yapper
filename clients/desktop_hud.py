@@ -50,7 +50,7 @@ class YapperDesktopHUD:
 
         # Positioning: Start in top-right corner of primary monitor
         screen_w = self.root.winfo_screenwidth()
-        pill_w, pill_h = 330, 52
+        pill_w, pill_h = 280, 52
         pos_x = screen_w - pill_w - 40
         pos_y = 60
         self.root.geometry(f"{pill_w}x{pill_h}+{pos_x}+{pos_y}")
@@ -162,40 +162,24 @@ class YapperDesktopHUD:
         self.close_btn = tk.Label(
             self.card,
             text="✕",
-            font=("Segoe UI", 8),
+            font=("Segoe UI", 9),
             fg="#8C776E",
             bg="#FAF6EE",
             cursor="hand2",
-            padx=2,
+            padx=4,
+            pady=2,
         )
-        self.close_btn.pack(side="right", padx=(2, 0))
+        self.close_btn.pack(side="right", padx=(4, 0))
         self.close_btn.bind("<Button-1>", lambda e: self.quit_app())
 
-        # Right: Hotkey shortcut badge (tactile keycap pill)
-        self.hotkey_btn = tk.Label(
-            self.card,
-            text=DEFAULT_HOTKEY_LABEL,
-            font=("Consolas", 8),
-            fg="#736056",
-            bg="#EFE7DC",
-            padx=7,
-            pady=2,
-            relief="flat",
-            cursor="hand2",
-        )
-        self.hotkey_btn.pack(side="right", padx=(4, 4))
-        self.hotkey_btn.bind("<Button-1>", lambda e: self.toggle_recording())
+        def _on_close_enter(e):
+            self.close_btn.config(fg="#C23B22")
 
-        def _on_badge_enter(e):
-            if not self.is_recording:
-                self.hotkey_btn.config(bg="#E5DCCE", fg="#251C17")
+        def _on_close_leave(e):
+            self.close_btn.config(fg="#8C776E")
 
-        def _on_badge_leave(e):
-            if not self.is_recording:
-                self.hotkey_btn.config(bg="#EFE7DC", fg="#736056")
-
-        self.hotkey_btn.bind("<Enter>", _on_badge_enter)
-        self.hotkey_btn.bind("<Leave>", _on_badge_leave)
+        self.close_btn.bind("<Enter>", _on_close_enter)
+        self.close_btn.bind("<Leave>", _on_close_leave)
 
     def _bind_drag_events(self) -> None:
         """Allow dragging the floating pill anywhere on screen."""
@@ -268,8 +252,7 @@ class YapperDesktopHUD:
         self.orb_btn.itemconfig(self.orb_circle, fill="#C23B22", outline="#8C2514")
         self.orb_btn.itemconfigure(self.orb_stop_icon, state="hidden")
         self.title_label.config(text="Yapper", fg="#251C17")
-        self.status_label.config(text="Click orb to start")
-        self.hotkey_btn.config(text=DEFAULT_HOTKEY_LABEL, bg="#EFE7DC", fg="#736056")
+        self.status_label.config(text=f"{DEFAULT_HOTKEY_LABEL} to record")
 
     def _on_hotkey_triggered(self) -> None:
         """Triggered when hotkey is pressed anywhere on Windows."""
@@ -296,8 +279,7 @@ class YapperDesktopHUD:
         self.orb_btn.itemconfig(self.orb_circle, fill="#E34A3B", outline="#FF6B5B")
         self.orb_btn.itemconfigure(self.orb_stop_icon, state="normal")
         self.title_label.config(text="Listening...", fg="#C23B22")
-        self.status_label.config(text="Speak aloud • Click orb to stop")
-        self.hotkey_btn.config(bg="#FCEBE9", fg="#C23B22")
+        self.status_label.config(text=f"{DEFAULT_HOTKEY_LABEL} to stop")
         self._start_recording_pulse()
 
         try:
@@ -349,7 +331,6 @@ class YapperDesktopHUD:
         self.orb_btn.itemconfig(self.orb_circle, fill="#D9983B", outline="#B57A22")
         self.title_label.config(text="Flow Inking...", fg="#D9983B")
         self.status_label.config(text="Transcribing & typing...")
-        self.hotkey_btn.config(bg="#EFE7DC", fg="#736056")
 
         # Process in background thread so GUI doesn't freeze
         threading.Thread(target=self._process_and_paste_pipeline, daemon=True).start()
@@ -467,8 +448,7 @@ class YapperDesktopHUD:
         self.orb_btn.itemconfigure(self.orb_stop_icon, state="hidden")
         self.orb_btn.itemconfig(self.orb_circle, fill="#C23B22", outline="#8C2514")
         self.title_label.config(text="Yapper", fg="#251C17")
-        self.status_label.config(text="Click orb to start")
-        self.hotkey_btn.config(text=DEFAULT_HOTKEY_LABEL, bg="#EFE7DC", fg="#736056")
+        self.status_label.config(text=f"{DEFAULT_HOTKEY_LABEL} to record")
 
     def quit_app(self) -> None:
         """Clean shutdown."""
