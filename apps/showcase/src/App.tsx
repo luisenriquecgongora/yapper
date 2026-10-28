@@ -518,7 +518,7 @@ export function App() {
                 <span className="text-[#594A42] text-[11px]">Type anywhere in Windows:</span>
               </div>
               <a
-                href="https://releases.plaatoos.com/yapper/latest/Yapper-windows-x64.zip"
+                href="https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip"
                 className="inline-flex items-center gap-1 text-[#C23B22] hover:text-[#8C2514] font-semibold text-[11px] hover:underline cursor-pointer"
                 title="Download Yapper for Windows (.zip)"
               >
@@ -925,7 +925,7 @@ const client = new TalkClient({
                     <span className="text-[11px] font-mono text-[#D9983B]">Windows 64-bit Portable</span>
                   </div>
                   <a
-                    href="https://releases.plaatoos.com/yapper/latest/Yapper-windows-x64.zip"
+                    href="https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip"
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#C23B22] hover:bg-[#A8321D] text-[#FAF5EB] font-sans text-xs font-medium transition-colors shadow-xs"
                   >
                     <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
@@ -935,7 +935,7 @@ const client = new TalkClient({
                   </a>
                 </div>
                 <pre>{`# 1. Download & Extract Yapper for Windows
-Download Link: https://releases.plaatoos.com/yapper/latest/Yapper-windows-x64.zip
+Download Link: https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip
 Unzip and double-click Yapper.exe (Zero Python or terminal required)
 
 # 2. How to Dictate into Any Application
@@ -1213,7 +1213,7 @@ python clients/desktop_hud.py`}</pre>
                     Always-on-top floating pill that transcribes and inks text directly into VS Code, Notion, Slack, and Word via <code className="bg-[#FAF6EE] px-1 py-0.5 rounded font-mono text-[#C23B22]">Ctrl+Shift+Space</code>.
                   </p>
                   <a
-                    href="https://releases.plaatoos.com/yapper/latest/Yapper-windows-x64.zip"
+                    href="https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip"
                     className="w-full py-2.5 px-3 rounded-xl bg-[#C23B22] hover:bg-[#A8321D] text-[#FAF5EB] text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs hover:shadow-md"
                     title="Download Yapper Desktop HUD for Windows (64-bit portable)"
                   >

@@ -35,11 +35,11 @@ def publish_release(version: str = "1.0.0", prefix: str = "yapper") -> None:
     if boto3 is None:
         raise SystemExit("Missing 'boto3'. Run: pip install boto3")
 
-    account_id = os.environ.get("R2_ACCOUNT_ID")
+    account_id = os.environ.get("R2_ACCOUNT_ID", "844652102876c425902bc592a2e072b2")
     access_key = os.environ.get("R2_ACCESS_KEY_ID")
     secret_key = os.environ.get("R2_SECRET_ACCESS_KEY")
-    bucket = os.environ.get("R2_BUCKET_NAME", "releases")
-    custom_domain = os.environ.get("R2_CUSTOM_DOMAIN", "https://releases.plaatoos.com").rstrip("/")
+    bucket = os.environ.get("R2_BUCKET_NAME", "plaatoos-downloads")
+    custom_domain = os.environ.get("R2_CUSTOM_DOMAIN", "https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev").rstrip("/")
 
     if not all([account_id, access_key, secret_key]):
         raise SystemExit(

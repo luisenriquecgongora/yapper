@@ -35,10 +35,10 @@ def package_and_upload(model_name: str = "tiny.en") -> None:
     if boto3 is None:
         raise SystemExit("Missing 'boto3'. Run: pip install boto3")
 
-    account_id = os.environ.get("R2_ACCOUNT_ID")
+    account_id = os.environ.get("R2_ACCOUNT_ID", "844652102876c425902bc592a2e072b2")
     access_key = os.environ.get("R2_ACCESS_KEY_ID")
     secret_key = os.environ.get("R2_SECRET_ACCESS_KEY")
-    bucket = os.environ.get("R2_BUCKET_NAME", "yapper-models")
+    bucket = os.environ.get("R2_BUCKET_NAME", "plaatoos-downloads")
 
     if not all([account_id, access_key, secret_key]):
         raise SystemExit(

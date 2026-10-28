@@ -12,7 +12,7 @@ from typing import Callable, Optional
 logger = logging.getLogger(__name__)
 
 # Cloudflare R2 CDN endpoint configuration
-DEFAULT_R2_CDN_URL = os.environ.get("YAPPER_R2_CDN_URL", "https://models.yapper.plaatoos.com")
+DEFAULT_R2_CDN_URL = os.environ.get("YAPPER_R2_CDN_URL", "https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev")
 LOCAL_CACHE_DIR = Path(os.environ.get("YAPPER_CACHE_DIR", Path.home() / ".cache" / "yapper" / "models"))
 
 MODEL_FILES = ["model.bin", "config.json", "tokenizer.json", "vocabulary.txt"]
