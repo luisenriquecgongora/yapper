@@ -1,0 +1,21 @@
+# ==============================================================================
+# GitHub Linguist Language Detection Configuration
+# Balances repository language statistics between Python and TypeScript
+# ==============================================================================
+
+# Treat showcase / demo web application as vendored demo code so it does not skew core statistics
+apps/** linguist-vendored
+
+# Mark test suites as documentation so only production library code is measured
+**/*.test.ts linguist-documentation
+**/*.test.tsx linguist-documentation
+services/yapper-engine/tests/** linguist-documentation
+
+# Ensure all Python engine files are recognized as primary code
+services/yapper-engine/**/*.py linguist-detectable=true
+services/yapper-engine/**/*.py linguist-language=Python
+
+# Consistent line endings across operating systems
+* text=auto eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
