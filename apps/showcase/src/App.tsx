@@ -394,17 +394,6 @@ export function App() {
           {/* Left Column (5 Cols): Title, Voice Orb & Controls */}
           <div className="lg:col-span-5 space-y-6">
             
-            {/* Poetic Title & Subtitle */}
-            <div className="space-y-2">
-              <h1 className="text-3xl sm:text-4xl font-serif font-normal italic tracking-tight text-[#251C17] leading-[1.2]">
-                Speak softly. <br />
-                <span className="not-italic text-[#C23B22] font-normal">Your voice writes itself into thought.</span>
-              </h1>
-              <p className="text-[#736056] text-xs sm:text-sm leading-relaxed font-light">
-                An intimate speech-to-text companion running entirely in the quiet of your browser via WebGPU. Never transmitted to the cloud. Zero data retention.
-              </p>
-            </div>
-
             {/* Living Wax Seal Voice Orb Card */}
             <div className="paper-card rounded-3xl p-6 md:p-8 flex flex-col items-center justify-center space-y-5 text-center relative overflow-hidden">
               
@@ -1161,26 +1150,21 @@ python clients/desktop_hud.py`}</pre>
                   <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#C23B22] to-[#E34A3B] flex items-center justify-center text-[#FAF5EB] font-serif italic text-base shadow-xs select-none">
                     y
                   </div>
-                  <div>
-                    <h3 className="font-serif italic font-medium text-lg text-[#251C17] leading-none">
-                      Navigation & Controls
-                    </h3>
-                    <div className="flex items-center gap-2 pt-1">
-                      <span className="text-[10px] uppercase font-mono tracking-wider text-[#8C776E]">
-                        Series IV
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyHash(GIT_HASH)}
-                        className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-[#FAF6EE] hover:bg-[#EFE7DC] text-[#594A42] hover:text-[#C23B22] border border-[#D7C3AF] font-mono transition-all cursor-pointer shadow-xs"
-                        title="Click to copy git commit hash"
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#C23B22]" />
-                        <span className="font-semibold text-[#251C17]">v{APP_VERSION}</span>
-                        <span className="text-[#8C776E]/60">·</span>
-                        <span>{copiedHash === GIT_HASH ? '✓ Copied' : GIT_HASH}</span>
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs uppercase font-mono tracking-wider text-[#8C776E]">
+                      Series IV
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyHash(GIT_HASH)}
+                      className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-[#FAF6EE] hover:bg-[#EFE7DC] text-[#594A42] hover:text-[#C23B22] border border-[#D7C3AF] font-mono transition-all cursor-pointer shadow-xs"
+                      title="Click to copy git commit hash"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#C23B22]" />
+                      <span className="font-semibold text-[#251C17]">v{APP_VERSION}</span>
+                      <span className="text-[#8C776E]/60">·</span>
+                      <span>{copiedHash === GIT_HASH ? '✓ Copied' : GIT_HASH}</span>
+                    </button>
                   </div>
                 </div>
 
