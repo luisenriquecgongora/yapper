@@ -9,6 +9,7 @@
 [![Tests Passing](https://img.shields.io/badge/Tests-28_Passed-emerald.svg)](https://vitest.dev)
 [![4-bit Quantized](https://img.shields.io/badge/Quantization-4--bit_q4-amber.svg)](https://huggingface.co/onnx-community/whisper-tiny)
 [![Zero Data Retention](https://img.shields.io/badge/Security-Zero_Data_Retention-blue.svg)](#-security--privacy-invariants)
+[![Research Roadmap](https://img.shields.io/badge/Research-Roadmap_%26_AI_Track-purple.svg)](FUTURE_PLANS.md)
 
 ---
 
