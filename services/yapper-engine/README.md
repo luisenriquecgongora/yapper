@@ -110,6 +110,18 @@ python -m src.main
 
 ---
 
+### 🖥️ Desktop HUD Client (Wispr Flow Style)
+
+Connect the floating desktop voice widget directly to this engine:
+```bash
+# In another terminal window:
+python clients/desktop_hud.py
+# (or double-click clients/run_desktop_hud.bat on Windows)
+```
+Once launched, press **`Alt+Space`** anywhere in Windows (VS Code, Notion, Slack, Chrome) to dictate and inject text directly at your active cursor. See [clients/README.md](../../clients/README.md) for full options.
+
+---
+
 ## 📡 API Specification
 
 ### 1. Health Probe (`GET /health`)

@@ -88,6 +88,9 @@ yapper/
 │   └── server/         # @yapper/server: Lightweight Zero Data Retention Node/Express cloud proxy
 ├── services/
 │   └── yapper-engine/  # Production async Python 3.12 / FastAPI streaming engine (Silero VAD, Local / OpenAI / Groq / vLLM, Wispr Flow)
+├── clients/
+│   ├── desktop_hud.py  # Wispr Flow-style floating desktop pill widget (global Alt+Space hotkey & cursor text typing)
+│   └── run_desktop_hud.bat # Windows launcher script
 └── apps/
     └── showcase/       # Production Vite web application deployed to yapper.plaatoos.com
 ```
@@ -231,6 +234,26 @@ Stream 16kHz PCM audio chunks over duplex WebSocket:
 ```
 ws://localhost:8000/ws/audio?language=en&mode=flow
 ```
+
+---
+
+### 5. Desktop Floating Voice HUD (Wispr Flow Style)
+
+An always-on-top, draggable desktop voice pill widget that floats over any application (VS Code, Cursor, Notion, Slack, Word, Chrome). Press `Alt+Space`, speak your thoughts, and Yapper transcribes, removes filler words, and types the text directly at your cursor.
+
+#### Launching the HUD:
+```bash
+# 1. Start the engine backend (terminal 1)
+cd services/yapper-engine
+python -m src.main
+# (or with docker: docker run -p 8000:8000 yapper-engine)
+
+# 2. Launch the Desktop HUD (terminal 2 or double-click run_desktop_hud.bat)
+python clients/desktop_hud.py
+```
+
+* **Workflow**: Put your cursor in any active app $\to$ Hit `Alt+Space` $\to$ Speak naturally $\to$ Hit `Alt+Space` again $\to$ Text is automatically typed into your cursor.
+* See [clients/README.md](clients/README.md) for full configuration, hotkey customization, and active cursor injection details.
 
 ---
 

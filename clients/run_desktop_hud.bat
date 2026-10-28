@@ -4,7 +4,13 @@ echo ==================================================================
 echo  🎙️ Starting Yapper Desktop Floating HUD (Wispr Flow style)
 echo ==================================================================
 cd /d "%~dp0\.."
-python clients\desktop_hud.py
+
+set "PY_EXE=python"
+if exist "services\yapper-engine\.venv\Scripts\python.exe" (
+    set "PY_EXE=services\yapper-engine\.venv\Scripts\python.exe"
+)
+
+"%PY_EXE%" clients\desktop_hud.py
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo [ERROR] Yapper Desktop HUD exited with code %ERRORLEVEL%.
