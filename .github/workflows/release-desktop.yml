@@ -1,0 +1,71 @@
+name: Build & Publish Desktop Release to Cloudflare R2
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version semver (e.g. 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build-and-release:
+    name: Build Windows Release & Publish R2
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Monorepo & Build Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller boto3
+          pip install -r clients/requirements.txt
+          pip install -r services/yapper-engine/requirements.txt
+
+      - name: Determine Version
+        id: get_version
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $ver = "${{ github.event.inputs.version }}".TrimStart("v")
+          } else {
+            $ver = "${{ github.ref_name }}".TrimStart("v")
+          }
+          echo "VERSION=$ver" >> $env:GITHUB_ENV
+          echo "Release version: $ver"
+
+      - name: Compile Windows Executable & Package ZIP
+        run: |
+          python scripts/build_windows_release.py --version ${{ env.VERSION }}
+
+      - name: Publish Release to Cloudflare R2
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME || 'releases' }}
+          R2_CUSTOM_DOMAIN: ${{ secrets.R2_CUSTOM_DOMAIN || 'https://releases.plaatoos.com' }}
+        run: |
+          python scripts/publish_release_to_r2.py --version ${{ env.VERSION }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/YapperFlow.exe
+            dist/YapperFlow-v${{ env.VERSION }}-windows-x64.zip
+            dist/version.json
+          generate_release_notes: true
+          draft: false
+          prerelease: false
