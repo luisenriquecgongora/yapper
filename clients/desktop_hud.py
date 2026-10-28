@@ -114,7 +114,7 @@ class YapperDesktopHUD:
 
         self.title_label = tk.Label(
             self.text_frame,
-            text="Yapper Flow",
+            text="Yapper",
             font=("Segoe UI", 10, "bold"),
             fg="#251C17",
             bg="#FAF6EE",
@@ -228,7 +228,7 @@ class YapperDesktopHUD:
         """Transition widget to active, ready state."""
         self.is_model_ready = True
         self.orb_indicator.itemconfig(self.orb_circle, fill="#C23B22", outline="#8C2514")
-        self.title_label.config(text="Yapper Flow", fg="#251C17")
+        self.title_label.config(text="Yapper", fg="#251C17")
         self.status_label.config(text=f"Press {DEFAULT_HOTKEY_LABEL} to Speak")
         self.hotkey_btn.config(text=DEFAULT_HOTKEY_LABEL, bg="#3A2D25")
 
@@ -409,7 +409,7 @@ class YapperDesktopHUD:
     def _reset_ui_idle(self) -> None:
         """Reset widget visual indicators to idle ready state."""
         self.orb_indicator.itemconfig(self.orb_circle, fill="#C23B22", outline="#8C2514")
-        self.title_label.config(text="Yapper Flow", fg="#251C17")
+        self.title_label.config(text="Yapper", fg="#251C17")
         self.status_label.config(text=f"Press {DEFAULT_HOTKEY_LABEL} to Speak")
         self.hotkey_btn.config(text=DEFAULT_HOTKEY_LABEL, bg="#3A2D25")
 

@@ -46,8 +46,8 @@ def publish_release(version: str = "1.0.0", prefix: str = "yapper") -> None:
             "Missing R2 credentials! Please set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY."
         )
 
-    exe_file = DIST_DIR / "YapperFlow.exe"
-    zip_file = DIST_DIR / f"YapperFlow-v{version}-windows-x64.zip"
+    exe_file = DIST_DIR / "Yapper.exe"
+    zip_file = DIST_DIR / f"Yapper-v{version}-windows-x64.zip"
     manifest_file = DIST_DIR / "version.json"
 
     for required in (exe_file, zip_file, manifest_file):
@@ -75,12 +75,12 @@ def publish_release(version: str = "1.0.0", prefix: str = "yapper") -> None:
 
     uploads = [
         # Versioned immutable uploads (1 year cache)
-        (exe_file, f"{version_dir}/YapperFlow.exe", "application/octet-stream", "public, max-age=31536000, immutable"),
+        (exe_file, f"{version_dir}/Yapper.exe", "application/octet-stream", "public, max-age=31536000, immutable"),
         (zip_file, f"{version_dir}/{zip_file.name}", "application/zip", "public, max-age=31536000, immutable"),
         (manifest_file, f"{version_dir}/version.json", "application/json", "public, max-age=86400"),
         # Canonical latest uploads (short or no-cache for auto-updates)
-        (exe_file, f"{latest_dir}/YapperFlow.exe", "application/octet-stream", "public, max-age=300"),
-        (zip_file, f"{latest_dir}/YapperFlow-windows-x64.zip", "application/zip", "public, max-age=300"),
+        (exe_file, f"{latest_dir}/Yapper.exe", "application/octet-stream", "public, max-age=300"),
+        (zip_file, f"{latest_dir}/Yapper-windows-x64.zip", "application/zip", "public, max-age=300"),
         (manifest_file, f"{latest_dir}/version.json", "application/json", "no-cache, must-revalidate"),
     ]
 
@@ -103,7 +103,7 @@ def publish_release(version: str = "1.0.0", prefix: str = "yapper") -> None:
     logger.info("🎉 CLOUDFLARE R2 RELEASE PUBLISHED SUCCESSFULLY!")
     logger.info("==================================================================")
     logger.info("• Versioned Download: %s/%s/%s", custom_domain, version_dir, zip_file.name)
-    logger.info("• Canonical Latest:   %s/%s/YapperFlow-windows-x64.zip", custom_domain, latest_dir)
+    logger.info("• Canonical Latest:   %s/%s/Yapper-windows-x64.zip", custom_domain, latest_dir)
     logger.info("• Update Manifest:    %s/%s/version.json", custom_domain, latest_dir)
     logger.info("==================================================================")
 

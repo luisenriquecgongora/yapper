@@ -52,7 +52,7 @@ def build_release(version: str = "1.0.0") -> Path:
         "--noconsole",
         "--onefile",
         "--name",
-        "YapperFlow",
+        "Yapper",
         "--clean",
         "--collect-all",
         "sounddevice",
@@ -72,7 +72,7 @@ def build_release(version: str = "1.0.0") -> Path:
     if res.returncode != 0:
         raise RuntimeError(f"PyInstaller build failed with exit code {res.returncode}")
 
-    exe_path = DIST_DIR / "YapperFlow.exe"
+    exe_path = DIST_DIR / "Yapper.exe"
     if not exe_path.exists():
         raise FileNotFoundError(f"Expected binary not found at: {exe_path}")
 
@@ -82,20 +82,20 @@ def build_release(version: str = "1.0.0") -> Path:
     logger.info("SHA256: %s", exe_sha256)
 
     # 2. Package into versioned release ZIP
-    zip_name = f"YapperFlow-v{version}-windows-x64.zip"
+    zip_name = f"Yapper-v{version}-windows-x64.zip"
     zip_path = DIST_DIR / zip_name
     logger.info("Packaging into portable archive: %s...", zip_name)
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-        zipf.write(exe_path, arcname="YapperFlow.exe")
+        zipf.write(exe_path, arcname="Yapper.exe")
 
         # Include README instructions
         readme_content = (
             "==================================================================\n"
-            f" 🎙️ YAPPER FLOW DESKTOP (v{version})\n"
+            f" 🎙️ YAPPER DESKTOP (v{version})\n"
             "==================================================================\n"
             "HOW TO USE:\n"
-            "1. Double-click YapperFlow.exe to launch.\n"
+            "1. Double-click Yapper.exe to launch.\n"
             "2. The floating paper pill will appear in the top-right corner.\n"
             "3. Click your cursor into ANY app (VS Code, Notion, Slack, Word, Chrome).\n"
             "4. Press Ctrl+Shift+Space to start speaking.\n"
@@ -112,17 +112,17 @@ def build_release(version: str = "1.0.0") -> Path:
 
     # 3. Create version.json manifest for auto-updates & Cloudflare R2 hosting
     manifest = {
-        "name": "Yapper Flow",
+        "name": "Yapper",
         "version": version,
         "release_date": "2026-10-28",
         "platforms": {
             "windows-x64": {
-                "binary": "YapperFlow.exe",
+                "binary": "Yapper.exe",
                 "binary_sha256": exe_sha256,
                 "zip": zip_name,
                 "zip_sha256": zip_sha256,
                 "download_url": f"https://releases.plaatoos.com/yapper/v{version}/{zip_name}",
-                "latest_url": "https://releases.plaatoos.com/yapper/latest/YapperFlow-windows-x64.zip",
+                "latest_url": "https://releases.plaatoos.com/yapper/latest/Yapper-windows-x64.zip",
             }
         },
         "changelog": f"Release v{version}: Ultra-low latency voice dictation with Wispr Flow post-processing.",

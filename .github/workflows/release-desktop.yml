@@ -63,8 +63,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            dist/YapperFlow.exe
-            dist/YapperFlow-v${{ env.VERSION }}-windows-x64.zip
+            dist/Yapper.exe
+            dist/Yapper-v${{ env.VERSION }}-windows-x64.zip
             dist/version.json
           generate_release_notes: true
           draft: false
