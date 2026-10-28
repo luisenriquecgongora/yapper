@@ -1,7 +1,8 @@
 """Wispr Flow text post-processor.
 
 Strips filler words, resolves speech self-corrections, enforces proper punctuation,
-and optionally extracts structured action JSON schemas using LLaMA 3.1 8B or deterministic rules.
+and optionally extracts structured action JSON schemas using any LLM provider
+(OpenAI, Groq, Together, vLLM, or deterministic regex rules).
 """
 
 import json
@@ -39,16 +40,53 @@ CORRECTION_REGEX = re.compile(r"(.*?)(?:,\s*|\s+)actually\s+(.*)", flags=re.IGNO
 class FlowFormatter:
     """Post-processor that transforms raw transcribed utterances into crisp, coherent text."""
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "llama-3.1-8b-instant") -> None:
-        self.api_key = api_key or settings.GROQ_API_KEY
-        self.model = model
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> None:
+        self._explicit_key = api_key
+        self._explicit_base_url = base_url
+        self._explicit_model = model
         self._client = None
+        self._resolved_model = None
+
+    def _resolve_client_config(self):
+        """Determine API credentials and target model based on active backend."""
+        if self._explicit_key is not None:
+            return self._explicit_key, self._explicit_base_url, self._explicit_model or "gpt-4o-mini"
+
+        backend = settings.effective_backend
+
+        if backend == "groq" and settings.GROQ_API_KEY:
+            return (
+                settings.GROQ_API_KEY,
+                "https://api.groq.com/openai/v1",
+                settings.GROQ_LLM_MODEL or "llama-3.1-8b-instant",
+            )
+        elif backend == "openai" and settings.OPENAI_API_KEY:
+            return (
+                settings.OPENAI_API_KEY,
+                None,
+                settings.OPENAI_LLM_MODEL or "gpt-4o-mini",
+            )
+        elif backend in ("custom", "openai_compatible") and (settings.API_KEY or settings.API_BASE_URL):
+            return (
+                settings.API_KEY or settings.OPENAI_API_KEY or "not-needed",
+                settings.API_BASE_URL,
+                settings.LLM_MODEL or "llama-3.1-8b-instant",
+            )
+        return None, None, None
 
     def _get_client(self):
-        if self._client is None and self.api_key:
-            from groq import AsyncGroq
+        if self._client is None:
+            api_key, base_url, model = self._resolve_client_config()
+            if api_key or base_url:
+                from openai import AsyncOpenAI
 
-            self._client = AsyncGroq(api_key=self.api_key)
+                self._client = AsyncOpenAI(api_key=api_key or "none", base_url=base_url)
+                self._resolved_model = model
         return self._client
 
     def _regex_fallback_cleanup(self, raw_text: str) -> str:
@@ -88,7 +126,7 @@ class FlowFormatter:
 
         try:
             chat_completion = await client.chat.completions.create(
-                model=self.model,
+                model=self._resolved_model or "gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT_FLOW},
                     {"role": "user", "content": clean_input},
@@ -100,7 +138,7 @@ class FlowFormatter:
             cleaned = result.strip().strip('"').strip("'")
             return cleaned or clean_input
         except Exception as exc:
-            logger.warning("Groq Flow post-processing fallback engaged due to error: %s", exc)
+            logger.warning("LLM Flow post-processing fallback engaged due to error: %s", exc)
             return self._regex_fallback_cleanup(clean_input)
 
     async def extract_action(self, raw_text: str, schema_json: Dict[str, Any]) -> Dict[str, Any]:
@@ -110,7 +148,6 @@ class FlowFormatter:
 
         client = self._get_client()
         if client is None:
-            # Fallback returns raw text in dict
             return {"raw": raw_text.strip()}
 
         prompt = (
@@ -121,7 +158,7 @@ class FlowFormatter:
 
         try:
             chat_completion = await client.chat.completions.create(
-                model=self.model,
+                model=self._resolved_model or "gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT_ACTION},
                     {"role": "user", "content": prompt},

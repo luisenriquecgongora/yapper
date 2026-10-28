@@ -37,10 +37,38 @@ def test_health_endpoint(client: TestClient):
 
 
 def test_config_settings():
-    """Verify configuration loads expected defaults."""
+    """Verify configuration loads expected defaults and multi-provider settings."""
     assert settings.SAMPLE_RATE == 16000
     assert settings.PORT == 8000
     assert settings.VAD_THRESHOLD >= 0.0
+    assert settings.effective_backend in ("local", "groq", "openai", "custom")
+
+
+def test_transcription_provider_factory():
+    """Verify get_transcriber correctly instantiates requested providers."""
+    from src.engine.transcription import (
+        LocalFasterWhisperTranscriber,
+        OpenAICompatibleTranscriber,
+        get_transcriber,
+    )
+
+    # 1. Local backend
+    local = get_transcriber("local")
+    assert isinstance(local, LocalFasterWhisperTranscriber)
+
+    # 2. OpenAI backend
+    openai_t = get_transcriber("openai")
+    assert isinstance(openai_t, OpenAICompatibleTranscriber)
+    assert openai_t.base_url is None
+
+    # 3. Groq backend
+    groq_t = get_transcriber("groq")
+    assert isinstance(groq_t, OpenAICompatibleTranscriber)
+    assert "groq.com" in (groq_t.base_url or "")
+
+    # 4. Custom endpoint (Together / Fireworks / vLLM)
+    custom_t = get_transcriber("custom")
+    assert isinstance(custom_t, OpenAICompatibleTranscriber)
 
 
 def test_vad_processing():

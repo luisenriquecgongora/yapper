@@ -20,7 +20,7 @@ logger = logging.getLogger("yapper.engine")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan managing startup pre-warm and shutdown cleanup."""
-    logger.info("Initializing Yapper Engine service (backend: %s, port: %d)...", settings.INFERENCE_BACKEND, settings.PORT)
+    logger.info("Initializing Yapper Engine service (backend: %s, port: %d)...", settings.effective_backend, settings.PORT)
     yield
     logger.info("Shutting down Yapper Engine service cleanly...")
 

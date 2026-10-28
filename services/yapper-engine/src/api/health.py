@@ -46,7 +46,7 @@ async def health_check() -> Dict[str, Any]:
     return {
         "status": "ok",
         "uptime_seconds": round(time.time() - START_TIME, 2),
-        "backend": settings.INFERENCE_BACKEND,
+        "backend": settings.effective_backend,
         "sample_rate": settings.SAMPLE_RATE,
         "memory_rss_mb": get_memory_rss_mb(),
     }

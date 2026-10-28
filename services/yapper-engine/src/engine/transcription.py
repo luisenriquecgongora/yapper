@@ -1,4 +1,4 @@
-"""Dual transcription providers supporting Groq Whisper Large v3 and Local Faster-Whisper."""
+"""Universal transcription providers supporting Local Faster-Whisper, OpenAI, Groq, and custom endpoints."""
 
 import abc
 import asyncio
@@ -34,32 +34,45 @@ class BaseTranscriber(abc.ABC):
         pass
 
 
-class GroqTranscriber(BaseTranscriber):
-    """Ultra-low latency transcription provider using Groq's Whisper Large v3 cloud API."""
+class OpenAICompatibleTranscriber(BaseTranscriber):
+    """Universal cloud transcriber adhering to the OpenAI audio transcription REST specification.
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "whisper-large-v3") -> None:
-        self.api_key = api_key or settings.GROQ_API_KEY
+    Compatible with OpenAI (whisper-1), Groq (whisper-large-v3), Together AI,
+    Fireworks AI, Cloudflare Workers, and self-hosted vLLM/LocalAI servers.
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        base_url: Optional[str] = None,
+        model: str = "whisper-1",
+    ) -> None:
+        self.api_key = api_key
+        self.base_url = base_url
         self.model = model
         self._client = None
 
     def _get_client(self):
         if self._client is None:
-            if not self.api_key:
-                raise ValueError("GROQ_API_KEY is not set. Please provide a key or switch to local inference.")
-            from groq import AsyncGroq
+            if not self.api_key and not self.base_url:
+                raise ValueError("API key or base_url is required for OpenAI-compatible transcription.")
 
-            self._client = AsyncGroq(api_key=self.api_key)
+            from openai import AsyncOpenAI
+
+            self._client = AsyncOpenAI(
+                api_key=self.api_key or "not-needed",
+                base_url=self.base_url,
+            )
         return self._client
 
     async def transcribe(self, pcm_bytes: bytes, language: str = "en") -> str:
-        if not pcm_bytes or len(pcm_bytes) < 3200:  # < 0.1s of 16kHz 16-bit PCM
+        if not pcm_bytes or len(pcm_bytes) < 3200:  # < 0.1s
             return ""
 
         client = self._get_client()
         wav_bytes = pcm_to_wav_bytes(pcm_bytes, sample_rate=settings.SAMPLE_RATE)
 
         try:
-            # Send in-memory virtual file tuple: (filename, bytes, content_type)
             response = await client.audio.transcriptions.create(
                 file=("speech.wav", wav_bytes, "audio/wav"),
                 model=self.model,
@@ -70,8 +83,18 @@ class GroqTranscriber(BaseTranscriber):
             raw_text = getattr(response, "text", "") or ""
             return raw_text.strip()
         except Exception as exc:
-            logger.error("Groq Whisper transcription API failed: %s", exc)
+            provider_label = self.base_url or "OpenAI"
+            logger.error("Cloud transcription failed via %s: %s", provider_label, exc)
             raise
+
+
+class GroqTranscriber(OpenAICompatibleTranscriber):
+    """High-throughput Groq Whisper transcriber running on LPU inference hardware."""
+
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None) -> None:
+        key = api_key or settings.GROQ_API_KEY
+        m = model or settings.GROQ_MODEL or "whisper-large-v3"
+        super().__init__(api_key=key, base_url="https://api.groq.com/openai/v1", model=m)
 
 
 class LocalFasterWhisperTranscriber(BaseTranscriber):
@@ -126,24 +149,40 @@ class LocalFasterWhisperTranscriber(BaseTranscriber):
         if not pcm_bytes or len(pcm_bytes) < 3200:
             return ""
 
-        # Run CPU/GPU bound inference in a background thread to prevent blocking event loop
         return await asyncio.to_thread(self._sync_transcribe, pcm_bytes, language)
 
 
 def get_transcriber(backend: Optional[str] = None) -> BaseTranscriber:
     """Factory creating the active transcription provider based on configuration."""
-    selected = (backend or settings.INFERENCE_BACKEND).lower()
+    selected = (backend or settings.effective_backend).lower()
 
-    if selected == "groq":
-        return GroqTranscriber(
-            api_key=settings.GROQ_API_KEY,
-            model=settings.GROQ_MODEL,
-        )
-    elif selected == "local":
+    if selected == "local":
         return LocalFasterWhisperTranscriber(
             model_size=settings.LOCAL_WHISPER_MODEL,
             device=settings.LOCAL_WHISPER_DEVICE,
             compute_type=settings.LOCAL_WHISPER_COMPUTE_TYPE,
         )
+    elif selected == "groq":
+        return GroqTranscriber(
+            api_key=settings.GROQ_API_KEY,
+            model=settings.GROQ_MODEL,
+        )
+    elif selected == "openai":
+        return OpenAICompatibleTranscriber(
+            api_key=settings.OPENAI_API_KEY,
+            base_url=None,  # Standard api.openai.com
+            model=settings.OPENAI_MODEL,
+        )
+    elif selected in ("custom", "openai_compatible"):
+        return OpenAICompatibleTranscriber(
+            api_key=settings.API_KEY or settings.OPENAI_API_KEY or "none",
+            base_url=settings.API_BASE_URL,
+            model=settings.STT_MODEL or "whisper-1",
+        )
     else:
-        raise ValueError(f"Unknown transcription backend '{selected}'. Expected 'groq' or 'local'.")
+        logger.warning("Unrecognized backend '%s'. Defaulting to local Faster-Whisper.", selected)
+        return LocalFasterWhisperTranscriber(
+            model_size=settings.LOCAL_WHISPER_MODEL,
+            device=settings.LOCAL_WHISPER_DEVICE,
+            compute_type=settings.LOCAL_WHISPER_COMPUTE_TYPE,
+        )
