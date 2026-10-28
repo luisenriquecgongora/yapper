@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 title Yapper Engine Service
 echo ==================================================================
 echo  ⚡ Starting Yapper Speech-to-Text Engine (Port 8000)

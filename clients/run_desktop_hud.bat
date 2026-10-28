@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 title Yapper Voice HUD
 echo ==================================================================
 echo  🎙️ Starting Yapper Desktop Floating HUD (Wispr Flow style)
