@@ -48,20 +48,26 @@ def download_from_r2_cdn(
         progress_callback(0.05, f"Connecting to R2 CDN ({model_name})...")
 
     try:
-        req = urllib.request.Request(
-            archive_url,
-            headers={"User-Agent": "YapperEngine/1.0 (+https://yapper.plaatoos.com)"},
-        )
-        with urllib.request.urlopen(req, timeout=15) as response:
-            total_size = int(response.headers.get("content-length", 0))
-            downloaded = 0
-            chunk_size = 256 * 1024  # 256 KB
+        import requests
 
-            with open(tar_path, "wb") as out_f:
-                while True:
-                    chunk = response.read(chunk_size)
-                    if not chunk:
-                        break
+        headers = {"User-Agent": "YapperEngine/1.0 (+https://yapper.plaatoos.com)"}
+        try:
+            resp = requests.get(archive_url, headers=headers, stream=True, timeout=20)
+        except requests.exceptions.SSLError:
+            logger.warning("R2 SSL verification failed, retrying with unverified context...")
+            resp = requests.get(archive_url, headers=headers, stream=True, timeout=20, verify=False)
+
+        if resp.status_code != 200:
+            logger.warning("R2 CDN returned status %d for %s. Falling back to Hugging Face.", resp.status_code, archive_url)
+            return False
+
+        total_size = int(resp.headers.get("content-length", 0))
+        downloaded = 0
+        chunk_size = 256 * 1024  # 256 KB
+
+        with open(tar_path, "wb") as out_f:
+            for chunk in resp.iter_content(chunk_size=chunk_size):
+                if chunk:
                     out_f.write(chunk)
                     downloaded += len(chunk)
                     if total_size > 0 and progress_callback:
