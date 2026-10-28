@@ -174,6 +174,41 @@ ws://localhost:8000/ws/audio?language=en&mode=flow
 
 ---
 
+## 💾 Memory & Resource Footprint
+
+`yapper-engine` is engineered for hyper-efficient operation in edge, container, or cloud server environments.
+
+### Model Inventory & Storage Footprint
+
+| Component | Framework / Source | Parameters | Disk Size | RAM / VRAM | Notes |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| **Silero VAD** | ONNX Runtime (`src/engine/vad.py`) | 1.8M | **1.8 MB** | ~30 MB RAM | Evaluates 32ms frames; CPU-bound; zero GPU needed |
+| **Faster-Whisper Tiny** (Default) | CTranslate2 `tiny.en` | 39M | **75 MB** | ~150 MB RAM | Int8 quantized; 45x–84x faster than real-time on CPU |
+| **Faster-Whisper Base** | CTranslate2 `base.en` | 74M | **145 MB** | ~250 MB RAM | Balanced speed / vocabulary coverage |
+| **Faster-Whisper Small** | CTranslate2 `small.en` | 244M | **480 MB** | ~800 MB RAM | Higher precision; suited for multicore CPUs / GPUs |
+| **Faster-Whisper Large v3** | CTranslate2 `large-v3-turbo` | 809M | **1.6 GB** | ~2.5 GB VRAM | SOTA WER; recommended with CUDA / MPS |
+| **Wispr Flow (Regex Heuristics)**| Native Python Engine (`src/engine/formatter.py`) | N/A | **0 MB** | <5 MB RAM | Strips fillers & repairs stutter deterministic rules |
+| **Wispr Flow (Cloud LLM)** | Groq `llama-3.1-8b` / OpenAI `gpt-4o-mini` | Remote | **0 MB** | ~0 MB | Sub-100ms conversational formatting pass |
+| **Wispr Flow (Local SLM)** | vLLM / Ollama (`qwen2.5:0.5b` or `llama3.2:1b`) | 0.5B–1B | **400 MB–1.1 GB**| ~0.8 GB–1.5 GB | Fully offline local conversational repair |
+
+### Container Runtime Profiles
+
+| Mode | Active Modules | Container RAM Idle | Active Inference RAM | Disk Footprint |
+| :--- | :--- | :---: | :---: | :---: |
+| **Cloud Proxy (Groq/OpenAI)** | FastAPI + Silero VAD + Remote API | **~42 MB** | **~65 MB** | **~180 MB** (Docker base image) |
+| **Local CPU (Default `tiny.en`)**| FastAPI + Silero VAD + CTranslate2 int8 | **~58 MB** | **~195 MB** | **~255 MB** (Image + Model weights) |
+| **Local Studio (Large v3 Turbo)** | FastAPI + Silero VAD + CTranslate2 CUDA | **~85 MB** | **~2.6 GB VRAM** | **~1.8 GB** (Image + Model weights) |
+
+> [!TIP]
+> **Docker Volume Persistence**: To avoid re-downloading model weights on container restart when using local inference, mount the cache directory:
+> ```bash
+> docker run -d -p 8000:8000 \
+>   -v $(pwd)/.cache/huggingface:/root/.cache/huggingface \
+>   yapper-engine
+> ```
+
+---
+
 ## 🧪 Testing & Empirical Benchmarks
 
 ### 1. Run Unit & Acoustic Tests

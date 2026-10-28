@@ -43,6 +43,41 @@
 
 ---
 
+## 💾 Model Inventory & Hardware Sizing Matrix
+
+Yapper supports two primary deployment topologies: **100% Offline Edge Execution** (zero cloud reliance or API costs) and **Ultra-Light Cloud Proxying** (<80MB RAM idle).
+
+### Model Size & Resource Specifications
+
+| Component / Subsystem | Model / Framework | Parameters | Disk Storage | Active RAM / VRAM | Execution Target |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **VAD Gating** | Silero VAD v4/v5 ONNX | 1.8M | **1.8 MB** | ~30 MB RAM | CPU (ONNX Runtime) |
+| **In-Browser STT** | `whisper-tiny` (4-bit q4) | 39M | **28 MB** (cached) | ~100 MB RAM | Client WebGPU / WASM |
+| **In-Browser STT** | `whisper-base` (4-bit q4) | 74M | **58 MB** (cached) | ~160 MB RAM | Client WebGPU / WASM |
+| **Local STT (Default)** | Faster-Whisper `tiny.en` | 39M | **75 MB** | ~150 MB RAM | CPU / CUDA (int8) |
+| **Local STT (Standard)**| Faster-Whisper `base.en` | 74M | **145 MB** | ~250 MB RAM | CPU / CUDA (int8) |
+| **Local STT (Accurate)**| Faster-Whisper `small.en`| 244M | **480 MB** | ~800 MB RAM | CPU / CUDA (int8/fp16) |
+| **Local STT (State of the Art)**| Faster-Whisper `large-v3-turbo` | 809M | **1.6 GB** | ~2.5 GB VRAM | NVIDIA CUDA / Apple MPS |
+| **Wispr Flow (Deterministic)** | Rule Engine & Regex Repair | N/A | **0 MB** | <5 MB RAM | Python CPU runtime |
+| **Wispr Flow (Local SLM)**| Qwen2.5-0.5B / Llama-3.2-1B | 0.5B–1B | **400 MB – 1.1 GB** | ~0.8 GB – 1.5 GB | Ollama / vLLM / llama.cpp |
+| **Cloud Inference** | Groq / OpenAI Whisper & LLM | Remote | **0 MB** | <80 MB RAM | Cloud API Gateway |
+
+### Deployment Footprint Profiles
+
+| Profile | Target Architecture | Disk Space Required | RAM / VRAM Needed | Offline Capability | Recommended Hardware |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| **1. Ultra-Light Cloud** | Desktop HUD + Groq / OpenAI | **~50 MB** (code only) | **< 100 MB RAM** | Requires Internet (API) | Any laptop, mini PC, or Docker container |
+| **2. Edge Local (Default)**| Desktop HUD + Local Faster-Whisper | **~80 MB** | **~200 MB RAM** | **100% Offline** | Standard Intel/AMD CPU or Apple Silicon |
+| **3. Studio Offline Pro** | Dictation + Large-v3-Turbo + SLM | **~2.7 GB** | **~4.0 GB VRAM/RAM** | **100% Offline** | PC with GPU (GTX 1660 / RTX 3060+ or M-series Mac) |
+| **4. In-Browser Client**   | Web app (`yapper.plaatoos.com`) | **~28 MB** (browser cache) | **~120 MB RAM** | **100% Offline** (after load) | Chrome, Edge, Brave, or Firefox with WebGPU |
+
+> [!NOTE]
+> **Model Cache Locations**:
+> - Faster-Whisper weights are saved automatically on initial inference to `~/.cache/huggingface/hub/` (Windows: `%USERPROFILE%\.cache\huggingface\hub\`).
+> - In-browser WebGPU models are cached locally in the browser's [Cache Storage API](https://developer.mozilla.org/en-US/docs/Web/API/CacheStorage) and can be removed at any time via the `<LocalModelCard />` UI.
+
+---
+
 ## 📦 Monorepo Architecture
 
 ```
