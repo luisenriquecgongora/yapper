@@ -11,7 +11,9 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 from ..config import settings
+from ..engine.dsp import SpectralDenoisingFilter
 from ..engine.formatter import FlowFormatter
+from ..engine.hallucination import HallucinationGuard
 from ..engine.transcription import BaseTranscriber, get_transcriber
 from ..engine.vad import SileroVAD
 
@@ -25,14 +27,15 @@ async def audio_websocket_endpoint(
     websocket: WebSocket,
     language: str = Query(default="en"),
     mode: str = Query(default="flow"),  # "flow", "raw", "action"
+    denoise: bool = Query(default=True),
 ) -> None:
     """Duplex streaming WebSocket endpoint.
 
     Ingests 16kHz 16-bit PCM binary frames, applies Silero VAD gating,
-    and returns formatted transcripts upon voice completion.
+    optional spectral noise suppression, and returns formatted transcripts upon voice completion.
     """
     await websocket.accept()
-    logger.info("WebSocket connection established (language=%s, mode=%s)", language, mode)
+    logger.info("WebSocket connection established (language=%s, mode=%s, denoise=%s)", language, mode, denoise)
 
     # Instantiate isolated per-connection session resources
     vad = SileroVAD(
@@ -40,6 +43,8 @@ async def audio_websocket_endpoint(
         sample_rate=settings.SAMPLE_RATE,
         threshold=settings.VAD_THRESHOLD,
     )
+    denoiser = SpectralDenoisingFilter(sample_rate=settings.SAMPLE_RATE) if denoise else None
+    guard = HallucinationGuard()
     transcriber: BaseTranscriber = get_transcriber()
     formatter = FlowFormatter()
 
@@ -74,7 +79,12 @@ async def audio_websocket_endpoint(
         t0 = time.perf_counter()
         try:
             logger.debug("Transcribing utterance (%d bytes, reason: %s)...", len(pcm_to_process), reason)
-            raw_text = await transcriber.transcribe(pcm_to_process, language=session_lang)
+            # Apply pre-transcription spectral denoising if enabled
+            audio_for_asr = denoiser.denoise_pcm(pcm_to_process) if denoiser else pcm_to_process
+            raw_asr = await transcriber.transcribe(audio_for_asr, language=session_lang)
+
+            # Filter autoregressive hallucinations and repetitive degenerate tokens
+            raw_text = guard.filter_transcript(raw_asr)
 
             formatted_text = raw_text
             extracted_action: Optional[Dict[str, Any]] = None
