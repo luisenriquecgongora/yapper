@@ -33,26 +33,63 @@ export function App() {
   const [activeTab, setActiveTab] = useState<'react' | 'vanilla' | 'cloud' | 'desktop' | 'commits'>('react');
   const [showCommitsSubrule, setShowCommitsSubrule] = useState<boolean>(false);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState<boolean>(false);
-  const [drawerRendered, setDrawerRendered] = useState<boolean>(false);
-  const [drawerVisible, setDrawerVisible] = useState<boolean>(false);
+  const [settingsDrawerRendered, setSettingsDrawerRendered] = useState<boolean>(false);
+  const [settingsDrawerVisible, setSettingsDrawerVisible] = useState<boolean>(false);
+
+  const [showMenuDrawer, setShowMenuDrawer] = useState<boolean>(false);
+  const [menuDrawerRendered, setMenuDrawerRendered] = useState<boolean>(false);
+  const [menuDrawerVisible, setMenuDrawerVisible] = useState<boolean>(false);
+
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const [hasWebGpu, setHasWebGpu] = useState<boolean>(false);
 
   const openSettingsDrawer = () => {
+    // If menu was open, close it
+    setMenuDrawerVisible(false);
+    setTimeout(() => {
+      setMenuDrawerRendered(false);
+      setShowMenuDrawer(false);
+    }, 150);
+
     setShowSettingsDrawer(true);
-    setDrawerRendered(true);
+    setSettingsDrawerRendered(true);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        setDrawerVisible(true);
+        setSettingsDrawerVisible(true);
       });
     });
   };
 
   const closeSettingsDrawer = () => {
-    setDrawerVisible(false);
+    setSettingsDrawerVisible(false);
     setTimeout(() => {
-      setDrawerRendered(false);
+      setSettingsDrawerRendered(false);
       setShowSettingsDrawer(false);
+    }, 300);
+  };
+
+  const openMenuDrawer = () => {
+    // If settings was open, close it
+    setSettingsDrawerVisible(false);
+    setTimeout(() => {
+      setSettingsDrawerRendered(false);
+      setShowSettingsDrawer(false);
+    }, 150);
+
+    setShowMenuDrawer(true);
+    setMenuDrawerRendered(true);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setMenuDrawerVisible(true);
+      });
+    });
+  };
+
+  const closeMenuDrawer = () => {
+    setMenuDrawerVisible(false);
+    setTimeout(() => {
+      setMenuDrawerRendered(false);
+      setShowMenuDrawer(false);
     }, 300);
   };
   
@@ -66,13 +103,14 @@ export function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && showSettingsDrawer) {
-        closeSettingsDrawer();
+      if (e.key === 'Escape') {
+        if (showSettingsDrawer) closeSettingsDrawer();
+        if (showMenuDrawer) closeMenuDrawer();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showSettingsDrawer]);
+  }, [showSettingsDrawer, showMenuDrawer]);
 
   const {
     status,
@@ -243,19 +281,19 @@ export function App() {
           {/* Hamburger Menu Button */}
           <button
             type="button"
-            onClick={openSettingsDrawer}
+            onClick={showMenuDrawer ? closeMenuDrawer : openMenuDrawer}
             className={`px-3 py-1.5 rounded-full border text-xs font-mono flex items-center gap-2 transition-all cursor-pointer shadow-xs ${
-              showSettingsDrawer
+              showMenuDrawer
                 ? 'bg-[#251C17] text-[#FAF5EB] border-[#251C17]'
                 : 'border-[#D7C3AF] bg-[#FAF6EE] text-[#594A42] hover:border-[#C23B22] hover:bg-[#EFE7DC]'
             }`}
-            title="Open Menu, Controls & Navigation Drawer"
+            title="Open Navigation Menu"
             aria-label="Navigation Menu"
           >
             <div className="flex flex-col gap-1 w-3.5 justify-center items-center">
-              <span className={`w-3.5 h-0.5 rounded-full transition-colors ${showSettingsDrawer ? 'bg-[#C23B22]' : 'bg-[#251C17]'}`} />
-              <span className={`w-3.5 h-0.5 rounded-full transition-colors ${showSettingsDrawer ? 'bg-[#FAF5EB]' : 'bg-[#251C17]'}`} />
-              <span className={`w-3.5 h-0.5 rounded-full transition-colors ${showSettingsDrawer ? 'bg-[#FAF5EB]' : 'bg-[#251C17]'}`} />
+              <span className={`w-3.5 h-0.5 rounded-full transition-colors ${showMenuDrawer ? 'bg-[#C23B22]' : 'bg-[#251C17]'}`} />
+              <span className={`w-3.5 h-0.5 rounded-full transition-colors ${showMenuDrawer ? 'bg-[#FAF5EB]' : 'bg-[#251C17]'}`} />
+              <span className={`w-3.5 h-0.5 rounded-full transition-colors ${showMenuDrawer ? 'bg-[#FAF5EB]' : 'bg-[#251C17]'}`} />
             </div>
             <span className="font-semibold text-xs text-[#251C17]">Menu</span>
           </button>
@@ -1112,30 +1150,29 @@ python clients/desktop_hud.py`}</pre>
         </button>
       </footer>
 
-      {/* Engine & Model Configuration Side Drawer */}
-      {drawerRendered && (
+      {/* ☰ Navigation Menu Drawer */}
+      {menuDrawerRendered && (
         <div
           className="fixed inset-0 z-50 overflow-hidden"
           role="dialog"
           aria-modal="true"
-          aria-label="Engine and Model Settings"
+          aria-label="Navigation Menu"
         >
           {/* Backdrop overlay with fade transition */}
           <div
             className={`fixed inset-0 bg-[#251C17]/45 backdrop-blur-xs transition-opacity duration-300 ease-out cursor-pointer ${
-              drawerVisible ? 'opacity-100' : 'opacity-0'
+              menuDrawerVisible ? 'opacity-100' : 'opacity-0'
             }`}
-            onClick={closeSettingsDrawer}
+            onClick={closeMenuDrawer}
           />
 
           {/* Sliding Drawer Container */}
           <div className="fixed inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10 pointer-events-none">
             <div
               className={`pointer-events-auto w-screen max-w-md bg-[#F7F3EA] border-l border-[#D7C3AF] shadow-[-16px_0_40px_rgba(37,28,23,0.18)] p-6 md:p-8 flex flex-col justify-between overflow-y-auto space-y-6 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform ${
-                drawerVisible ? 'translate-x-0' : 'translate-x-full'
+                menuDrawerVisible ? 'translate-x-0' : 'translate-x-full'
               }`}
             >
-              
               {/* Drawer Header */}
               <div className="flex items-center justify-between border-b border-[#D7C3AF]/80 pb-4">
                 <div className="flex items-center gap-2.5">
@@ -1143,9 +1180,7 @@ python clients/desktop_hud.py`}</pre>
                     y
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs uppercase font-mono tracking-wider text-[#8C776E]">
-                      Series IV
-                    </span>
+                    <span className="font-serif italic font-medium text-lg text-[#251C17]">Menu</span>
                     <button
                       type="button"
                       onClick={() => handleCopyHash(GIT_HASH)}
@@ -1162,7 +1197,7 @@ python clients/desktop_hud.py`}</pre>
 
                 <button
                   type="button"
-                  onClick={closeSettingsDrawer}
+                  onClick={closeMenuDrawer}
                   className="w-8 h-8 rounded-full border border-[#D7C3AF] flex items-center justify-center text-[#8C776E] hover:text-[#C23B22] hover:border-[#C23B22] bg-[#FAF6EE] transition-colors cursor-pointer"
                   title="Close Menu (Esc)"
                 >
@@ -1200,11 +1235,30 @@ python clients/desktop_hud.py`}</pre>
                   </a>
                 </div>
 
-                {/* 2. System Acceleration & Telemetry Strip */}
+                {/* 2. Quick Settings Shortcut Card */}
+                <div className="paper-card rounded-2xl p-4 sm:p-5 flex items-center justify-between text-[#594A42] bg-[#FAF6EE]">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-serif italic font-medium text-[#251C17] flex items-center gap-1.5">
+                      <span>⚙ Engine &amp; Model</span>
+                    </span>
+                    <p className="text-[11px] text-[#8C776E] font-light">
+                      {preferredEngine === 'browser' ? 'Native 0ms' : `WebGPU Whisper (${modelSize})`} · {language}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openSettingsDrawer}
+                    className="px-3 py-1.5 rounded-xl border border-[#D7C3AF] bg-[#FAF5EB] hover:bg-[#EFE7DC] hover:border-[#C23B22] text-[#C23B22] text-xs font-mono font-medium transition-all cursor-pointer shadow-xs"
+                  >
+                    Configure →
+                  </button>
+                </div>
+
+                {/* 3. System Acceleration & Telemetry Strip */}
                 <div className="paper-card rounded-2xl p-4 sm:p-5 space-y-3 text-[#594A42]">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-[#8C776E] block font-semibold">
-                      Live Telemetry & Diagnostics
+                      Live Telemetry &amp; Diagnostics
                     </span>
                     <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 font-semibold shadow-xs">
                       ✓ 20/20 Tests
@@ -1247,10 +1301,10 @@ python clients/desktop_hud.py`}</pre>
                   )}
                 </div>
 
-                {/* 3. Quick Consoles & Ledgers Toggles */}
+                {/* 4. Quick Consoles & Ledgers Toggles */}
                 <div className="paper-card rounded-2xl p-4 sm:p-5 space-y-3 text-[#594A42]">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-[#8C776E] block font-semibold">
-                    Consoles & Ledgers
+                    Consoles &amp; Ledgers
                   </span>
 
                   <div className="space-y-2">
@@ -1299,54 +1353,132 @@ python clients/desktop_hud.py`}</pre>
                     </button>
                   </div>
                 </div>
+              </div>
 
-                {/* 4. Embossed Controls Card */}
-                <div className="paper-card rounded-2xl p-4 sm:p-5 space-y-4 text-[#594A42]">
-                  {/* Architecture Selector */}
+              {/* Drawer Footer */}
+              <div className="pt-4 border-t border-[#D7C3AF]/80 flex items-center justify-between text-xs text-[#8C776E] font-mono">
+                <a
+                  href="https://github.com/luisenriquecgongora/yapper"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 text-[#594A42] hover:text-[#C23B22] transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                  </svg>
+                  <span>GitHub Repository ↗</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={closeMenuDrawer}
+                  className="px-4 py-1.5 rounded-xl bg-[#251C17] text-[#FAF5EB] font-sans hover:bg-[#3A2D25] transition-colors cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ⚙ Engine & Model Settings Drawer */}
+      {settingsDrawerRendered && (
+        <div
+          className="fixed inset-0 z-50 overflow-hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Engine and Model Settings"
+        >
+          {/* Backdrop overlay with fade transition */}
+          <div
+            className={`fixed inset-0 bg-[#251C17]/45 backdrop-blur-xs transition-opacity duration-300 ease-out cursor-pointer ${
+              settingsDrawerVisible ? 'opacity-100' : 'opacity-0'
+            }`}
+            onClick={closeSettingsDrawer}
+          />
+
+          {/* Sliding Drawer Container */}
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10 pointer-events-none">
+            <div
+              className={`pointer-events-auto w-screen max-w-md bg-[#F7F3EA] border-l border-[#D7C3AF] shadow-[-16px_0_40px_rgba(37,28,23,0.18)] p-6 md:p-8 flex flex-col justify-between overflow-y-auto space-y-6 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform ${
+                settingsDrawerVisible ? 'translate-x-0' : 'translate-x-full'
+              }`}
+            >
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between border-b border-[#D7C3AF]/80 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-[#FAF6EE] border border-[#D7C3AF] text-[#C23B22] flex items-center justify-center text-sm shadow-xs select-none">
+                    ⚙
+                  </div>
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] font-mono uppercase tracking-wider text-[#8C776E] block font-semibold">
-                        Engine Architecture
-                      </label>
-                      <span className="text-[10px] font-mono text-[#C23B22] font-semibold">
-                        {preferredEngine === 'browser'
-                          ? '⚡ Instant 0ms Mode'
-                          : '✦ On-Device WebGPU'}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPreferredEngine('local')}
-                        className={`py-2 px-2.5 text-xs rounded-xl border transition-all text-center cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-                          preferredEngine === 'local' || (preferredEngine === 'auto' && modelProgress.status === 'ready')
-                            ? 'bg-[#FAF6EE] border-[#C23B22] text-[#C23B22] font-semibold shadow-xs'
-                            : 'border-[#D7C3AF] text-[#8C776E] hover:border-[#C23B22]/50 hover:text-[#251C17]'
-                        }`}
-                      >
-                        <span className="font-semibold text-xs">✦ WebGPU (Whisper)</span>
-                        <span className="text-[9px] opacity-75 font-mono">100% On-Device · Private</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPreferredEngine('browser')}
-                        className={`py-2 px-2.5 text-xs rounded-xl border transition-all text-center cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-                          preferredEngine === 'browser'
-                            ? 'bg-[#FAF6EE] border-[#C23B22] text-[#C23B22] font-semibold shadow-xs'
-                            : 'border-[#D7C3AF] text-[#8C776E] hover:border-[#C23B22]/50 hover:text-[#251C17]'
-                        }`}
-                      >
-                        <span className="font-semibold text-xs">⚡ Native (Instant)</span>
-                        <span className="text-[9px] opacity-75 font-mono">0ms Latency · Live Syllables</span>
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-[#8C776E] mt-1.5 leading-normal font-light">
-                      {preferredEngine === 'browser'
-                        ? '⚡ Native mode streams live words directly from browser hardware (0ms delay, zero GPU load).'
-                        : '✦ WebGPU runs OpenAI Whisper neural weights directly in your browser shaders. Speed depends on your GPU hardware.'}
+                    <h3 className="font-serif italic font-medium text-lg text-[#251C17] leading-tight">
+                      Settings
+                    </h3>
+                    <p className="text-[10px] font-mono text-[#8C776E]">
+                      Engine Architecture &amp; Models
                     </p>
                   </div>
+                </div>
 
+                <button
+                  type="button"
+                  onClick={closeSettingsDrawer}
+                  className="w-8 h-8 rounded-full border border-[#D7C3AF] flex items-center justify-center text-[#8C776E] hover:text-[#C23B22] hover:border-[#C23B22] bg-[#FAF6EE] transition-colors cursor-pointer"
+                  title="Close Settings (Esc)"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Drawer Body - ONLY Settings options */}
+              <div className="space-y-5 flex-1">
+                {/* Engine Architecture Card */}
+                <div className="paper-card rounded-2xl p-4 sm:p-5 space-y-3 text-[#594A42]">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-mono uppercase tracking-wider text-[#8C776E] block font-semibold">
+                      Engine Architecture
+                    </label>
+                    <span className="text-[10px] font-mono text-[#C23B22] font-semibold">
+                      {preferredEngine === 'browser'
+                        ? '⚡ Instant 0ms Mode'
+                        : '✦ On-Device WebGPU'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPreferredEngine('local')}
+                      className={`py-2 px-2.5 text-xs rounded-xl border transition-all text-center cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                        preferredEngine === 'local' || (preferredEngine === 'auto' && modelProgress.status === 'ready')
+                          ? 'bg-[#FAF6EE] border-[#C23B22] text-[#C23B22] font-semibold shadow-xs'
+                          : 'border-[#D7C3AF] text-[#8C776E] hover:border-[#C23B22]/50 hover:text-[#251C17]'
+                      }`}
+                    >
+                      <span className="font-semibold text-xs">✦ WebGPU (Whisper)</span>
+                      <span className="text-[9px] opacity-75 font-mono">100% On-Device · Private</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreferredEngine('browser')}
+                      className={`py-2 px-2.5 text-xs rounded-xl border transition-all text-center cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                        preferredEngine === 'browser'
+                          ? 'bg-[#FAF6EE] border-[#C23B22] text-[#C23B22] font-semibold shadow-xs'
+                          : 'border-[#D7C3AF] text-[#8C776E] hover:border-[#C23B22]/50 hover:text-[#251C17]'
+                      }`}
+                    >
+                      <span className="font-semibold text-xs">⚡ Native (Instant)</span>
+                      <span className="text-[9px] opacity-75 font-mono">0ms Latency · Live Syllables</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[#8C776E] mt-1.5 leading-normal font-light">
+                    {preferredEngine === 'browser'
+                      ? '⚡ Native mode streams live words directly from browser hardware (0ms delay, zero GPU load).'
+                      : '✦ WebGPU runs OpenAI Whisper neural weights directly in your browser shaders. Speed depends on your GPU hardware.'}
+                  </p>
+                </div>
+
+                {/* Model Scale & Language Card */}
+                <div className="paper-card rounded-2xl p-4 sm:p-5 space-y-4 text-[#594A42]">
                   {/* Model Scale */}
                   <div>
                     <label className="text-[10px] font-mono uppercase tracking-wider text-[#8C776E] block font-semibold mb-1.5">
@@ -1395,7 +1527,7 @@ python clients/desktop_hud.py`}</pre>
                   </div>
                 </div>
 
-                {/* 5. Local Model Download / Cache Card */}
+                {/* Local Model Download / Cache Card */}
                 <LocalModelCard
                   progress={modelProgress}
                   modelSize={modelSize}
@@ -1407,17 +1539,9 @@ python clients/desktop_hud.py`}</pre>
 
               {/* Drawer Footer */}
               <div className="pt-4 border-t border-[#D7C3AF]/80 flex items-center justify-between text-xs text-[#8C776E] font-mono">
-                <a
-                  href="https://github.com/luisenriquecgongora/yapper"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1.5 text-[#594A42] hover:text-[#C23B22] transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                    <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-                  </svg>
-                  <span>GitHub Repository ↗</span>
-                </a>
+                <span className="text-[11px] text-[#8C776E]">
+                  Active: <strong className="text-[#251C17]">{preferredEngine === 'browser' ? 'Native 0ms' : `Whisper (${modelSize})`}</strong>
+                </span>
                 <button
                   type="button"
                   onClick={closeSettingsDrawer}
@@ -1426,7 +1550,6 @@ python clients/desktop_hud.py`}</pre>
                   Done
                 </button>
               </div>
-
             </div>
           </div>
         </div>
