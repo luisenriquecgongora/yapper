@@ -1,7 +1,7 @@
 """Yapper Desktop Floating HUD Widget (Wispr Flow style).
 
 An always-on-top, draggable desktop voice pill that floats over any application
-(VS Code, Notion, Slack, Word, Browser). Press the global hotkey (Alt+Space),
+(VS Code, Notion, Slack, Word, Browser). Press the global hotkey (Ctrl+Shift+Space),
 speak naturally, and Yapper will transcribe, clean, and type the text directly
 wherever your cursor/mouse is focused.
 """
@@ -18,8 +18,8 @@ import wave
 from typing import Optional
 
 # Audio recording via sounddevice
-import sounddevice as sd
 import numpy as np
+import sounddevice as sd
 
 # Global hotkey and keyboard simulation via pynput
 from pynput import keyboard
@@ -28,9 +28,13 @@ from pynput import keyboard
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] [HUD]: %(message)s")
 logger = logging.getLogger("yapper.hud")
 
-# Engine connection defaults
+# Engine connection & hotkey configuration
 ENGINE_HTTP_URL = os.environ.get("YAPPER_ENGINE_URL", "http://localhost:8000")
 SAMPLE_RATE = 16000
+
+# Collision-free default hotkey: Ctrl+Shift+Space (avoids clashing with Windows Alt+Space window menu)
+DEFAULT_HOTKEY = os.environ.get("YAPPER_HOTKEY", "<ctrl>+<shift>+<space>")
+DEFAULT_HOTKEY_LABEL = os.environ.get("YAPPER_HOTKEY_LABEL", "Ctrl+Shift+Space")
 
 
 class YapperDesktopHUD:
@@ -46,7 +50,7 @@ class YapperDesktopHUD:
 
         # Positioning: Start in top-right corner of primary monitor
         screen_w = self.root.winfo_screenwidth()
-        pill_w, pill_h = 280, 52
+        pill_w, pill_h = 330, 52
         pos_x = screen_w - pill_w - 40
         pos_y = 60
         self.root.geometry(f"{pill_w}x{pill_h}+{pos_x}+{pos_y}")
@@ -55,7 +59,8 @@ class YapperDesktopHUD:
         self._drag_start_x = 0
         self._drag_start_y = 0
 
-        # Recording state
+        # State management
+        self.is_model_ready = False
         self.is_recording = False
         self.audio_frames = []
         self.audio_stream: Optional[sd.InputStream] = None
@@ -67,6 +72,9 @@ class YapperDesktopHUD:
 
         # Start global keyboard listener in background thread
         self._start_global_hotkey_listener()
+
+        # Kick off background model verification & pre-warming
+        threading.Thread(target=self._prewarm_model_pipeline, daemon=True).start()
 
     def _build_ui(self) -> None:
         """Construct the tactile warm paper pill widget."""
@@ -98,7 +106,7 @@ class YapperDesktopHUD:
             highlightthickness=0,
         )
         self.orb_indicator.pack(side="left", padx=(0, 8))
-        self.orb_circle = self.orb_indicator.create_oval(2, 2, 16, 16, fill="#C23B22", outline="#8C2514", width=1)
+        self.orb_circle = self.orb_indicator.create_oval(2, 2, 16, 16, fill="#D9983B", outline="#B57A22", width=1)
 
         # Center: Status text
         self.text_frame = tk.Frame(self.card, bg="#FAF6EE")
@@ -116,7 +124,7 @@ class YapperDesktopHUD:
 
         self.status_label = tk.Label(
             self.text_frame,
-            text="Press Alt+Space to Speak",
+            text="Loading AI model...",
             font=("Segoe UI", 8),
             fg="#736056",
             bg="#FAF6EE",
@@ -127,10 +135,10 @@ class YapperDesktopHUD:
         # Right: Hotkey badge button
         self.hotkey_btn = tk.Label(
             self.card,
-            text="Alt+Space",
+            text="Warming...",
             font=("Consolas", 8, "bold"),
             fg="#FAF6EE",
-            bg="#3A2D25",
+            bg="#5C4D44",
             padx=6,
             pady=2,
             relief="flat",
@@ -167,28 +175,72 @@ class YapperDesktopHUD:
         self.root.geometry(f"+{x}+{y}")
 
     def _start_global_hotkey_listener(self) -> None:
-        """Register system-wide global hotkey (Alt+Space) using pynput."""
+        """Register system-wide global hotkey using pynput."""
         def for_canonical(f):
             return lambda k: f(listener.canonical(k))
 
-        # Register Alt+Space combination
-        hotkey = keyboard.HotKey(
-            keyboard.HotKey.parse("<alt>+<space>"),
-            self._on_hotkey_triggered,
-        )
+        try:
+            hotkey = keyboard.HotKey(
+                keyboard.HotKey.parse(DEFAULT_HOTKEY),
+                self._on_hotkey_triggered,
+            )
 
-        listener = keyboard.Listener(
-            on_press=for_canonical(hotkey.press),
-            on_release=for_canonical(hotkey.release),
-        )
-        listener.daemon = True
-        listener.start()
+            listener = keyboard.Listener(
+                on_press=for_canonical(hotkey.press),
+                on_release=for_canonical(hotkey.release),
+            )
+            listener.daemon = True
+            listener.start()
+            logger.info("Registered collision-free global hotkey: %s", DEFAULT_HOTKEY)
+        except Exception as exc:
+            logger.error("Failed to bind global hotkey '%s': %s", DEFAULT_HOTKEY, exc)
+
+    def _prewarm_model_pipeline(self) -> None:
+        """Pre-warm model weights on launch so speech transcription is instant."""
+        try:
+            # 1. Check if backend HTTP server is running
+            import requests
+            try:
+                res = requests.get(f"{ENGINE_HTTP_URL}/health", timeout=1.5)
+                if res.status_code == 200:
+                    logger.info("Connected to Yapper Engine HTTP backend.")
+                    self.root.after(0, self._set_model_ready)
+                    return
+            except Exception:
+                pass
+
+            # 2. Check and pre-warm local in-process model
+            self.root.after(0, lambda: self.status_label.config(text="Verifying AI model weights..."))
+            sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "services", "yapper-engine")))
+            from src.engine.transcription import get_transcriber
+
+            transcriber = get_transcriber()
+            if hasattr(transcriber, "_get_model"):
+                self.root.after(0, lambda: self.status_label.config(text="Loading Whisper model..."))
+                transcriber._get_model()
+
+            self.root.after(0, self._set_model_ready)
+        except Exception as exc:
+            logger.warning("Pre-warm completed with notice: %s", exc)
+            self.root.after(0, self._set_model_ready)
+
+    def _set_model_ready(self) -> None:
+        """Transition widget to active, ready state."""
+        self.is_model_ready = True
+        self.orb_indicator.itemconfig(self.orb_circle, fill="#C23B22", outline="#8C2514")
+        self.title_label.config(text="Yapper Flow", fg="#251C17")
+        self.status_label.config(text=f"Press {DEFAULT_HOTKEY_LABEL} to Speak")
+        self.hotkey_btn.config(text=DEFAULT_HOTKEY_LABEL, bg="#3A2D25")
 
     def _on_hotkey_triggered(self) -> None:
-        """Triggered when Alt+Space is pressed anywhere on Windows."""
+        """Triggered when hotkey is pressed anywhere on Windows."""
         self.root.after(0, self.toggle_recording)
 
     def toggle_recording(self) -> None:
+        if not self.is_model_ready:
+            self.status_label.config(text="Model warming up, please wait...")
+            return
+
         if not self.is_recording:
             self.start_recording()
         else:
@@ -204,7 +256,7 @@ class YapperDesktopHUD:
         # Update visual UI state
         self.orb_indicator.itemconfig(self.orb_circle, fill="#E34A3B", outline="#FF6B5B")
         self.title_label.config(text="Listening...", fg="#C23B22")
-        self.status_label.config(text="Speak aloud now • Alt+Space to commit")
+        self.status_label.config(text=f"Speak aloud • {DEFAULT_HOTKEY_LABEL} to finish")
         self.hotkey_btn.config(bg="#C23B22")
 
         try:
@@ -358,8 +410,8 @@ class YapperDesktopHUD:
         """Reset widget visual indicators to idle ready state."""
         self.orb_indicator.itemconfig(self.orb_circle, fill="#C23B22", outline="#8C2514")
         self.title_label.config(text="Yapper Flow", fg="#251C17")
-        self.status_label.config(text="Press Alt+Space to Speak")
-        self.hotkey_btn.config(bg="#3A2D25")
+        self.status_label.config(text=f"Press {DEFAULT_HOTKEY_LABEL} to Speak")
+        self.hotkey_btn.config(text=DEFAULT_HOTKEY_LABEL, bg="#3A2D25")
 
     def quit_app(self) -> None:
         """Clean shutdown."""
@@ -380,8 +432,8 @@ if __name__ == "__main__":
     print("==================================================================")
     print(" • Widget will float in top-right of your screen.")
     print(" • Click anywhere in VS Code, Notion, Slack, Word, or Chrome.")
-    print(" • Press Alt+Space anywhere on Windows to speak.")
-    print(" • Press Alt+Space again to stop and automatically type the text!")
+    print(f" • Press {DEFAULT_HOTKEY_LABEL} anywhere on Windows to speak.")
+    print(f" • Press {DEFAULT_HOTKEY_LABEL} again to stop and automatically type!")
     print(" • Drag the widget anywhere on your screen.")
     print("==================================================================")
     hud = YapperDesktopHUD()

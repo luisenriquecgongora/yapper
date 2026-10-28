@@ -119,10 +119,13 @@ class LocalFasterWhisperTranscriber(BaseTranscriber):
                 self.device,
                 self.compute_type,
             )
+            from .model_loader import ensure_model_ready
+            model_path_or_name = ensure_model_ready(self.model_size)
+
             from faster_whisper import WhisperModel
 
             self._model = WhisperModel(
-                self.model_size,
+                model_path_or_name,
                 device=self.device,
                 compute_type=self.compute_type,
             )

@@ -239,7 +239,7 @@ ws://localhost:8000/ws/audio?language=en&mode=flow
 
 ### 5. Desktop Floating Voice HUD (Wispr Flow Style)
 
-An always-on-top, draggable desktop voice pill widget that floats over any application (VS Code, Cursor, Notion, Slack, Word, Chrome). Press `Alt+Space`, speak your thoughts, and Yapper transcribes, removes filler words, and types the text directly at your cursor.
+An always-on-top, draggable desktop voice pill widget that floats over any application (VS Code, Cursor, Notion, Slack, Word, Chrome). Press `Ctrl+Shift+Space`, speak your thoughts, and Yapper transcribes, removes filler words, and types the text directly at your cursor.
 
 #### Launching the HUD:
 ```bash
@@ -252,7 +252,7 @@ python -m src.main
 python clients/desktop_hud.py
 ```
 
-* **Workflow**: Put your cursor in any active app $\to$ Hit `Alt+Space` $\to$ Speak naturally $\to$ Hit `Alt+Space` again $\to$ Text is automatically typed into your cursor.
+* **Workflow**: Put your cursor in any active app $\to$ Hit `Ctrl+Shift+Space` $\to$ Speak naturally $\to$ Hit `Ctrl+Shift+Space` again $\to$ Text is automatically typed into your cursor.
 * See [clients/README.md](clients/README.md) for full configuration, hotkey customization, and active cursor injection details.
 
 ---
