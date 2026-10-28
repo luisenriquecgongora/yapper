@@ -248,24 +248,20 @@ class YapperDesktopHUD:
 
     def _process_and_paste_pipeline(self) -> None:
         """Convert recorded PCM to WAV, request transcription, and type into active window."""
-        if not self.audio_frames:
-            self.root.after(0, self._reset_ui_idle)
-            return
-
-        # Concatenate PCM frames
-        audio_np = np.concatenate(self.audio_frames, axis=0)
-        pcm_bytes = audio_np.tobytes()
-
-        # Suppress tiny audio (< 0.2s)
-        if len(pcm_bytes) < 6400:
-            self.root.after(0, self._reset_ui_idle)
-            return
-
-        final_text = ""
-
-        # Option A: Send to running Yapper Engine server via HTTP
         try:
-            import urllib.request
+            if not self.audio_frames:
+                self.root.after(0, self._reset_ui_idle)
+                return
+
+            # Concatenate PCM frames
+            audio_np = np.concatenate(self.audio_frames, axis=0)
+            pcm_bytes = audio_np.tobytes()
+
+            # Suppress tiny audio (< 0.25s)
+            if len(pcm_bytes) < 8000:
+                logger.info("Audio segment too short (<0.25s). Resetting.")
+                self.root.after(0, self._reset_ui_idle)
+                return
 
             wav_buf = io.BytesIO()
             with wave.open(wav_buf, "wb") as wf:
@@ -275,20 +271,32 @@ class YapperDesktopHUD:
                 wf.writeframes(pcm_bytes)
             wav_bytes = wav_buf.getvalue()
 
-            # Attempt local or cloud transcription via yapper engine / direct Groq/OpenAI
             final_text = self._transcribe_audio(wav_bytes, pcm_bytes)
+            self.root.after(0, self._on_transcription_finished, final_text)
         except Exception as exc:
-            logger.warning("Pipeline processing error: %s", exc)
-
-        if final_text:
-            logger.info("Transcribed text: %s", final_text)
-            self._inject_text_into_active_app(final_text)
-
-        self.root.after(0, self._reset_ui_idle)
+            logger.error("Pipeline processing error: %s", exc, exc_info=True)
+            self.root.after(0, self._reset_ui_idle)
 
     def _transcribe_audio(self, wav_bytes: bytes, pcm_bytes: bytes) -> str:
-        """Transcribe via local faster-whisper, yapper-engine, or direct API."""
-        # 1. Try direct import of local yapper-engine if available in workspace
+        """Transcribe via running yapper-engine HTTP API or direct faster-whisper."""
+        # 1. First priority: Check running Yapper Engine server via HTTP (port 8000 or 8089)
+        import requests
+        for endpoint in [f"{ENGINE_HTTP_URL}/api/transcribe", "http://localhost:8089/api/transcribe"]:
+            try:
+                res = requests.post(
+                    endpoint,
+                    files={"file": ("speech.wav", wav_bytes, "audio/wav")},
+                    data={"language": "en"},
+                    timeout=8,
+                )
+                if res.status_code == 200:
+                    text = res.json().get("text", "")
+                    if text:
+                        return text
+            except Exception:
+                pass
+
+        # 2. Second priority: Direct in-process faster-whisper fallback
         try:
             sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "services", "yapper-engine")))
             from src.engine.transcription import get_transcriber
@@ -308,45 +316,43 @@ class YapperDesktopHUD:
             if text:
                 return text
         except Exception as direct_err:
-            logger.debug("Direct engine import fallback: %s", direct_err)
-
-        # 2. Try HTTP API against yapper-engine (port 8000 or 8089)
-        import requests
-        for endpoint in [f"{ENGINE_HTTP_URL}/api/transcribe", "http://localhost:8089/api/transcribe"]:
-            try:
-                res = requests.post(
-                    endpoint,
-                    files={"file": ("speech.wav", wav_bytes, "audio/wav")},
-                    data={"language": "en"},
-                    timeout=5,
-                )
-                if res.status_code == 200:
-                    return res.json().get("text", "")
-            except Exception:
-                continue
+            logger.warning("Direct engine import fallback failed: %s", direct_err)
 
         return ""
 
-    def _inject_text_into_active_app(self, text: str) -> None:
-        """Inject text directly into the user's active cursor location via Windows clipboard paste."""
-        if not text:
-            return
+    def _on_transcription_finished(self, final_text: str) -> None:
+        """Executed strictly on the main GUI thread."""
+        try:
+            if final_text:
+                logger.info("Transcribed text: %s", final_text)
+                self.title_label.config(text="Pasting...", fg="#251C17")
 
-        # Small delay to ensure focus returns to target app
-        time.sleep(0.08)
+                # Put text into clipboard safely on main thread
+                self.root.clipboard_clear()
+                self.root.clipboard_append(final_text + " ")
 
-        # Put text into clipboard via tkinter
-        self.root.clipboard_clear()
-        self.root.clipboard_append(text + " ")
-        self.root.update()
+                # Fire paste simulation after small yield
+                def _do_paste():
+                    try:
+                        self.kbd_controller.press(keyboard.Key.ctrl)
+                        self.kbd_controller.press('v')
+                        self.kbd_controller.release('v')
+                        self.kbd_controller.release(keyboard.Key.ctrl)
+                        logger.info("Successfully inked text into active application cursor.")
+                    except Exception as paste_err:
+                        logger.error("Paste simulation error: %s", paste_err)
+                    finally:
+                        self._reset_ui_idle()
 
-        # Simulate Ctrl+V to paste instantly without dropping letters
-        time.sleep(0.05)
-        self.kbd_controller.press(keyboard.Key.ctrl)
-        self.kbd_controller.press('v')
-        self.kbd_controller.release('v')
-        self.kbd_controller.release(keyboard.Key.ctrl)
-        logger.info("Successfully inked text into active application cursor.")
+                self.root.after(60, _do_paste)
+                return
+            else:
+                logger.info("No speech detected or empty transcription.")
+        except Exception as exc:
+            logger.error("Clipboard injection error: %s", exc)
+        finally:
+            if not final_text:
+                self._reset_ui_idle()
 
     def _reset_ui_idle(self) -> None:
         """Reset widget visual indicators to idle ready state."""

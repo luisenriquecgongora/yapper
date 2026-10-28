@@ -152,37 +152,46 @@ class LocalFasterWhisperTranscriber(BaseTranscriber):
         return await asyncio.to_thread(self._sync_transcribe, pcm_bytes, language)
 
 
+_TRANSCRIBER_CACHE: dict = {}
+
+
 def get_transcriber(backend: Optional[str] = None) -> BaseTranscriber:
-    """Factory creating the active transcription provider based on configuration."""
+    """Factory creating or returning the cached transcription provider."""
     selected = (backend or settings.effective_backend).lower()
 
+    if selected in _TRANSCRIBER_CACHE:
+        return _TRANSCRIBER_CACHE[selected]
+
     if selected == "local":
-        return LocalFasterWhisperTranscriber(
+        instance = LocalFasterWhisperTranscriber(
             model_size=settings.LOCAL_WHISPER_MODEL,
             device=settings.LOCAL_WHISPER_DEVICE,
             compute_type=settings.LOCAL_WHISPER_COMPUTE_TYPE,
         )
     elif selected == "groq":
-        return GroqTranscriber(
+        instance = GroqTranscriber(
             api_key=settings.GROQ_API_KEY,
             model=settings.GROQ_MODEL,
         )
     elif selected == "openai":
-        return OpenAICompatibleTranscriber(
+        instance = OpenAICompatibleTranscriber(
             api_key=settings.OPENAI_API_KEY,
             base_url=None,  # Standard api.openai.com
             model=settings.OPENAI_MODEL,
         )
     elif selected in ("custom", "openai_compatible"):
-        return OpenAICompatibleTranscriber(
+        instance = OpenAICompatibleTranscriber(
             api_key=settings.API_KEY or settings.OPENAI_API_KEY or "none",
             base_url=settings.API_BASE_URL,
             model=settings.STT_MODEL or "whisper-1",
         )
     else:
         logger.warning("Unrecognized backend '%s'. Defaulting to local Faster-Whisper.", selected)
-        return LocalFasterWhisperTranscriber(
+        instance = LocalFasterWhisperTranscriber(
             model_size=settings.LOCAL_WHISPER_MODEL,
             device=settings.LOCAL_WHISPER_DEVICE,
             compute_type=settings.LOCAL_WHISPER_COMPUTE_TYPE,
         )
+
+    _TRANSCRIBER_CACHE[selected] = instance
+    return instance
