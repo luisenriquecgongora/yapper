@@ -215,7 +215,7 @@ export function App() {
       <div className="fixed top-[-10%] left-1/2 -translate-x-1/2 w-[1000px] h-[550px] bg-[radial-gradient(ellipse,rgba(227,74,59,0.08)_0%,rgba(217,152,59,0.04)_50%,transparent_75%)] blur-3xl pointer-events-none" />
 
       {/* Paper Stationery Header */}
-      <header className="border-b border-[#D7C3AF]/60 bg-[#F7F3EA]/90 backdrop-blur-md sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-[#D7C3AF]/60 bg-[#F7F3EA]/90 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#C23B22] to-[#E34A3B] flex items-center justify-center text-[#FAF5EB] font-serif italic text-base shadow-[0_2px_8px_rgba(194,59,34,0.35)] select-none">
             y
@@ -231,98 +231,42 @@ export function App() {
           <span className="hidden sm:inline-flex text-[11px] px-2.5 py-0.5 rounded-full bg-[#EFE7DC] text-[#736056] border border-[#D7C3AF]/70 font-mono">
             yapper.plaatoos.com
           </span>
-          <button
-            type="button"
-            onClick={() => setShowCommitsSubrule(!showCommitsSubrule)}
-            className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-0.5 rounded-full bg-[#FAF6EE] hover:bg-[#EFE7DC] text-[#594A42] hover:text-[#C23B22] border border-[#D7C3AF] font-mono transition-all cursor-pointer shadow-xs"
-            title="Toggle release version & git commit sub-ruler"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-[#C23B22]" />
-            <span className="font-semibold text-[#251C17]">v{APP_VERSION}</span>
-            <span className="text-[#8C776E]/60">·</span>
-            <span className="text-[10px] text-[#8C776E]">{GIT_HASH}</span>
-          </button>
         </div>
 
-        <div className="flex items-center gap-3 text-sm">
-          <span className="flex items-center gap-2 text-xs font-mono text-[#594A42] bg-[#EFE7DC] px-3 py-1 rounded-full border border-[#D7C3AF]/70 shadow-xs">
-            <span className={`w-2 h-2 rounded-full ${hasWebGpu ? 'bg-[#D9983B] shadow-[0_0_6px_#D9983B]' : 'bg-[#C23B22]'}`} />
-            {hasWebGpu ? 'WebGPU Accelerated' : 'WASM CPU Mode'}
-          </span>
-          {/* Live Latency Metric Badge */}
-          <span
-            className="hidden md:inline-flex items-center gap-1.5 text-xs font-mono text-[#594A42] bg-[#EFE7DC] px-3 py-1 rounded-full border border-[#D7C3AF]/70 shadow-xs"
-            title="Real-time speech transcription decoding latency"
-          >
-            <span className="text-[#C23B22] font-semibold">⚡</span>
-            <span>Latency:</span>
-            <strong className="text-[#C23B22]">
-              {preferredEngine === 'browser'
-                ? '0ms (Instant)'
-                : latencyStats.lastInterpMs
-                ? `${latencyStats.lastInterpMs}ms`
-                : '--'}
-            </strong>
-          </span>
-          <button
-            type="button"
-            onClick={openSettingsDrawer}
-            className={`px-3 py-1 rounded-full border text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
-              showSettingsDrawer
-                ? 'bg-[#251C17] text-[#FAF5EB] border-[#251C17]'
-                : 'border-[#D7C3AF] bg-[#EFE7DC] text-[#594A42] hover:border-[#C23B22]'
-            }`}
-            title="Open Engine & Model Settings Drawer"
-          >
-            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-            </svg>
-            <span>Settings</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowCommitsSubrule(!showCommitsSubrule)}
-            className={`px-3 py-1 rounded-full border text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
-              showCommitsSubrule
-                ? 'bg-[#251C17] text-[#FAF5EB] border-[#251C17]'
-                : 'border-[#D7C3AF] bg-[#EFE7DC] text-[#594A42] hover:border-[#C23B22]'
-            }`}
-            title="Toggle commit history sub-ruler"
-          >
-            <span className="font-serif italic font-medium">§</span>
-            <span>Commits ({RECENT_COMMITS.length})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowLogs(!showLogs)}
-            className={`px-3 py-1 rounded-full border text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
-              showLogs
-                ? 'bg-[#251C17] text-[#FAF5EB] border-[#251C17]'
-                : 'border-[#D7C3AF] bg-[#EFE7DC] text-[#594A42] hover:border-[#C23B22]'
-            }`}
-            title="Toggle live telemetry logs console"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-[#C23B22] animate-pulse" />
-            <span>Logs ({logs.length})</span>
-          </button>
-          <a
-            href="https://releases.plaatoos.com/yapper/latest/Yapper-windows-x64.zip"
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C23B22] hover:bg-[#A8321D] text-[#FAF5EB] font-mono text-xs font-medium shadow-xs transition-all cursor-pointer hover:shadow-md"
-            title="Download Yapper Desktop HUD for Windows (64-bit portable)"
-          >
-            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-            <span>Download Desktop</span>
-          </a>
+        <div className="flex items-center gap-2.5 sm:gap-3 text-sm">
+          {/* GitHub link visible in header at all times */}
           <a
             href="https://github.com/luisenriquecgongora/yapper"
             target="_blank"
             rel="noreferrer"
-            className="px-3.5 py-1 rounded-full border border-[#D7C3AF] hover:border-[#C23B22] hover:bg-[#F2EBE0] transition-all text-xs font-medium text-[#594A42]"
+            className="px-3 py-1.5 rounded-full border border-[#D7C3AF] hover:border-[#C23B22] hover:bg-[#F2EBE0] transition-all text-xs font-mono font-medium text-[#594A42] flex items-center gap-1.5 shadow-xs"
+            title="View source repository on GitHub"
           >
-            GitHub
+            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+              <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+            </svg>
+            <span className="hidden xs:inline">GitHub</span>
           </a>
+
+          {/* Hamburger Menu Button */}
+          <button
+            type="button"
+            onClick={openSettingsDrawer}
+            className={`px-3 py-1.5 rounded-full border text-xs font-mono flex items-center gap-2 transition-all cursor-pointer shadow-xs ${
+              showSettingsDrawer
+                ? 'bg-[#251C17] text-[#FAF5EB] border-[#251C17]'
+                : 'border-[#D7C3AF] bg-[#FAF6EE] text-[#594A42] hover:border-[#C23B22] hover:bg-[#EFE7DC]'
+            }`}
+            title="Open Menu, Controls & Navigation Drawer"
+            aria-label="Navigation Menu"
+          >
+            <div className="flex flex-col gap-1 w-3.5 justify-center items-center">
+              <span className={`w-3.5 h-0.5 rounded-full transition-colors ${showSettingsDrawer ? 'bg-[#C23B22]' : 'bg-[#251C17]'}`} />
+              <span className={`w-3.5 h-0.5 rounded-full transition-colors ${showSettingsDrawer ? 'bg-[#FAF5EB]' : 'bg-[#251C17]'}`} />
+              <span className={`w-3.5 h-0.5 rounded-full transition-colors ${showSettingsDrawer ? 'bg-[#FAF5EB]' : 'bg-[#251C17]'}`} />
+            </div>
+            <span className="font-semibold text-xs text-[#251C17]">Menu</span>
+          </button>
         </div>
       </header>
 
@@ -554,7 +498,7 @@ export function App() {
                 </strong>
                 <button
                   type="button"
-                  onClick={() => setShowSettingsDrawer(true)}
+                  onClick={openSettingsDrawer}
                   className="text-[#C23B22] hover:underline cursor-pointer ml-1 font-semibold"
                 >
                   Change ⚙
@@ -1214,14 +1158,29 @@ python clients/desktop_hud.py`}</pre>
               {/* Drawer Header */}
               <div className="flex items-center justify-between border-b border-[#D7C3AF]/80 pb-4">
                 <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#C23B22] shadow-[0_0_6px_rgba(194,59,34,0.4)]" />
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#C23B22] to-[#E34A3B] flex items-center justify-center text-[#FAF5EB] font-serif italic text-base shadow-xs select-none">
+                    y
+                  </div>
                   <div>
                     <h3 className="font-serif italic font-medium text-lg text-[#251C17] leading-none">
-                      Engine & Model Settings
+                      Navigation & Controls
                     </h3>
-                    <span className="text-[10px] uppercase font-mono tracking-wider text-[#8C776E]">
-                      Series IV · Hardware Controls
-                    </span>
+                    <div className="flex items-center gap-2 pt-1">
+                      <span className="text-[10px] uppercase font-mono tracking-wider text-[#8C776E]">
+                        Series IV
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyHash(GIT_HASH)}
+                        className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-[#FAF6EE] hover:bg-[#EFE7DC] text-[#594A42] hover:text-[#C23B22] border border-[#D7C3AF] font-mono transition-all cursor-pointer shadow-xs"
+                        title="Click to copy git commit hash"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#C23B22]" />
+                        <span className="font-semibold text-[#251C17]">v{APP_VERSION}</span>
+                        <span className="text-[#8C776E]/60">·</span>
+                        <span>{copiedHash === GIT_HASH ? '✓ Copied' : GIT_HASH}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1229,16 +1188,144 @@ python clients/desktop_hud.py`}</pre>
                   type="button"
                   onClick={closeSettingsDrawer}
                   className="w-8 h-8 rounded-full border border-[#D7C3AF] flex items-center justify-center text-[#8C776E] hover:text-[#C23B22] hover:border-[#C23B22] bg-[#FAF6EE] transition-colors cursor-pointer"
-                  title="Close Settings (Esc)"
+                  title="Close Menu (Esc)"
                 >
                   ✕
                 </button>
               </div>
 
-              {/* Drawer Body: The two cards */}
-              <div className="space-y-5 flex-1">
-                {/* 1. Embossed Controls Card */}
-                <div className="paper-card rounded-2xl p-5 space-y-4 text-[#594A42]">
+              {/* Drawer Body */}
+              <div className="space-y-4 flex-1">
+                {/* 1. Yapper Desktop Floating HUD Card */}
+                <div className="paper-card rounded-2xl p-4 sm:p-5 space-y-3 text-[#594A42] border-l-4 border-l-[#C23B22]">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#C23B22]" />
+                      <span className="text-xs font-serif italic font-medium text-[#251C17]">
+                        Yapper for Desktop
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#FAF6EE] border border-[#D7C3AF] text-[#736056]">
+                      Windows 64-bit
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#736056] leading-relaxed font-light">
+                    Always-on-top floating pill that transcribes and inks text directly into VS Code, Notion, Slack, and Word via <code className="bg-[#FAF6EE] px-1 py-0.5 rounded font-mono text-[#C23B22]">Ctrl+Shift+Space</code>.
+                  </p>
+                  <a
+                    href="https://releases.plaatoos.com/yapper/latest/Yapper-windows-x64.zip"
+                    className="w-full py-2.5 px-3 rounded-xl bg-[#C23B22] hover:bg-[#A8321D] text-[#FAF5EB] text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs hover:shadow-md"
+                    title="Download Yapper Desktop HUD for Windows (64-bit portable)"
+                  >
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                    <span>Download Desktop App (.zip)</span>
+                  </a>
+                </div>
+
+                {/* 2. System Acceleration & Telemetry Strip */}
+                <div className="paper-card rounded-2xl p-4 sm:p-5 space-y-3 text-[#594A42]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#8C776E] block font-semibold">
+                      Live Telemetry & Diagnostics
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 font-semibold shadow-xs">
+                      ✓ 20/20 Tests
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                    {/* Acceleration badge */}
+                    <div className="flex flex-col p-2.5 rounded-xl bg-[#FAF6EE] border border-[#D7C3AF]/80 shadow-xs">
+                      <span className="text-[10px] text-[#8C776E] mb-1">Engine Backend</span>
+                      <span className="flex items-center gap-1.5 font-medium text-[#251C17] text-[11px]">
+                        <span className={`w-2 h-2 rounded-full ${hasWebGpu ? 'bg-[#D9983B] shadow-[0_0_6px_#D9983B]' : 'bg-[#C23B22]'}`} />
+                        {hasWebGpu ? 'WebGPU' : 'WASM CPU'}
+                      </span>
+                    </div>
+
+                    {/* Latency badge */}
+                    <div className="flex flex-col p-2.5 rounded-xl bg-[#FAF6EE] border border-[#D7C3AF]/80 shadow-xs">
+                      <span className="text-[10px] text-[#8C776E] mb-1">Inference Latency</span>
+                      <span className="flex items-center gap-1 font-semibold text-[#C23B22] text-[11px]">
+                        <span>⚡</span>
+                        <span>
+                          {preferredEngine === 'browser'
+                            ? '0ms (Instant)'
+                            : latencyStats.lastInterpMs
+                            ? `${latencyStats.lastInterpMs}ms`
+                            : '--'}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {latencyStats.avgInterpMs && (
+                    <div className="flex items-center justify-between text-[11px] font-mono text-[#736056] pt-1 border-t border-[#D7C3AF]/50">
+                      <span>Historical Average:</span>
+                      <span className="font-medium text-[#251C17]">
+                        {latencyStats.avgInterpMs}ms {latencyStats.tokensPerSec ? `(~${latencyStats.tokensPerSec} tok/s)` : ''}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Quick Consoles & Ledgers Toggles */}
+                <div className="paper-card rounded-2xl p-4 sm:p-5 space-y-3 text-[#594A42]">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#8C776E] block font-semibold">
+                    Consoles & Ledgers
+                  </span>
+
+                  <div className="space-y-2">
+                    {/* Postal Ledger / Commits Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setShowCommitsSubrule(!showCommitsSubrule)}
+                      className={`w-full p-2.5 rounded-xl border text-xs font-mono flex items-center justify-between transition-all cursor-pointer shadow-xs ${
+                        showCommitsSubrule
+                          ? 'bg-[#251C17] text-[#FAF5EB] border-[#251C17]'
+                          : 'border-[#D7C3AF] bg-[#FAF6EE] text-[#594A42] hover:border-[#C23B22] hover:bg-[#EFE7DC]'
+                      }`}
+                      title="Toggle Postal Ledger / Commit History Ribbon"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="font-serif italic font-medium">§</span>
+                        <span>Postal Ledger ({RECENT_COMMITS.length})</span>
+                      </span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-mono ${
+                        showCommitsSubrule ? 'bg-[#C23B22] text-[#FAF5EB]' : 'bg-[#EFE7DC] text-[#736056]'
+                      }`}>
+                        {showCommitsSubrule ? 'Active' : 'Show'}
+                      </span>
+                    </button>
+
+                    {/* Live Telegraph Ribbon Logs Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setShowLogs(!showLogs)}
+                      className={`w-full p-2.5 rounded-xl border text-xs font-mono flex items-center justify-between transition-all cursor-pointer shadow-xs ${
+                        showLogs
+                          ? 'bg-[#251C17] text-[#FAF5EB] border-[#251C17]'
+                          : 'border-[#D7C3AF] bg-[#FAF6EE] text-[#594A42] hover:border-[#C23B22] hover:bg-[#EFE7DC]'
+                      }`}
+                      title="Toggle Live Telemetry Ribbon Console"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#C23B22] animate-pulse" />
+                        <span>Telegraph Ribbon Logs ({logs.length})</span>
+                      </span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-mono ${
+                        showLogs ? 'bg-[#C23B22] text-[#FAF5EB]' : 'bg-[#EFE7DC] text-[#736056]'
+                      }`}>
+                        {showLogs ? 'Active' : 'Show'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4. Embossed Controls Card */}
+                <div className="paper-card rounded-2xl p-4 sm:p-5 space-y-4 text-[#594A42]">
                   {/* Architecture Selector */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
@@ -1332,7 +1419,7 @@ python clients/desktop_hud.py`}</pre>
                   </div>
                 </div>
 
-                {/* 2. Local Model Download / Cache Card */}
+                {/* 5. Local Model Download / Cache Card */}
                 <LocalModelCard
                   progress={modelProgress}
                   modelSize={modelSize}
@@ -1340,38 +1427,21 @@ python clients/desktop_hud.py`}</pre>
                   onDownload={downloadModel}
                   onRemove={removeModel}
                 />
-
-                {/* 3. Yapper Desktop Floating HUD Card */}
-                <div className="paper-card rounded-2xl p-5 space-y-3 text-[#594A42]">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#C23B22]" />
-                      <span className="text-xs font-serif italic font-medium text-[#251C17]">
-                        Yapper for Desktop
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#FAF6EE] border border-[#D7C3AF] text-[#736056]">
-                      Windows 64-bit
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#736056] leading-relaxed font-light">
-                    Always-on-top floating pill that transcribes and types text directly into VS Code, Notion, Slack, and Word via <code className="bg-[#FAF6EE] px-1 py-0.5 rounded font-mono text-[#C23B22]">Ctrl+Shift+Space</code>.
-                  </p>
-                  <a
-                    href="https://releases.plaatoos.com/yapper/latest/Yapper-windows-x64.zip"
-                    className="w-full py-2 px-3 rounded-xl bg-[#251C17] hover:bg-[#3A2D25] text-[#FAF5EB] text-xs font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
-                  >
-                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                    <span>Download Desktop App (.zip)</span>
-                  </a>
-                </div>
               </div>
 
               {/* Drawer Footer */}
               <div className="pt-4 border-t border-[#D7C3AF]/80 flex items-center justify-between text-xs text-[#8C776E] font-mono">
-                <span>Yapper v{APP_VERSION}</span>
+                <a
+                  href="https://github.com/luisenriquecgongora/yapper"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 text-[#594A42] hover:text-[#C23B22] transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                  </svg>
+                  <span>GitHub Repository ↗</span>
+                </a>
                 <button
                   type="button"
                   onClick={closeSettingsDrawer}
