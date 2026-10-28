@@ -917,10 +917,18 @@ const transcript = await client.stop();`}</pre>
             )}
 
             {activeTab === 'cloud' && (
-              <pre>{`# Run the Zero Data Retention gateway
+              <pre>{`# Option A: Run the high-throughput Python streaming engine with Docker
+cd services/yapper-engine
+docker build -t yapper-engine .
+docker run -d -p 8000:8000 --memory=512m yapper-engine
+
+# Stream duplex 16kHz PCM audio via WebSocket:
+# ws://localhost:8000/ws/audio?language=en&mode=flow
+
+# Option B: Run the lightweight Zero Data Retention proxy
 cd packages/server && yarn start
 
-# Configure TalkClient to stream to your self-hosted proxy
+# Configure TalkClient to stream to your cloud endpoint
 const client = new TalkClient({
   preferredEngine: 'cloud',
   cloudEndpoint: 'https://your-domain.com/api/transcribe',

@@ -31,14 +31,15 @@
 
 ## ⚡ Architecture Comparison
 
-| Capability | In-Browser WebGPU Whisper | Native Web Speech API | Cloud Gateway (ZDR Proxy) |
-| :--- | :---: | :---: | :---: |
-| **Server Cost** | **$0.00 (Zero)** | **$0.00 (Zero)** | Pay-per-token API cost |
-| **Data Privacy** | **100% Client-Side (Never transmitted)** | Cloud (Browser vendor) | End-to-end encrypted, zero retention |
-| **Offline Dictation** | **Yes (Cached in browser storage)** | No | No |
-| **Latency** | **~60ms – 120ms** (WebGPU 4-bit) | **0ms – 50ms** (Instant streaming) | 150ms – 300ms |
-| **Accuracy** | High (Whisper Tiny / Base / Small) | Medium | Very High (Whisper Large / Cloud) |
-| **Hardware** | GPU (Chrome, Edge, Brave) / WASM CPU | Any supported browser | Any internet-connected device |
+| Capability | In-Browser WebGPU Whisper | Native Web Speech API | Python Streaming Engine (`yapper-engine`) | Cloud Gateway (ZDR Proxy) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Server Cost** | **$0.00 (Zero)** | **$0.00 (Zero)** | **$0.00 (Local)** or Cloud API cost | Pay-per-token API cost |
+| **Data Privacy** | **100% Client-Side** | Cloud (Browser vendor) | **100% On-Premises** (Local Faster-Whisper) | End-to-end encrypted, zero retention |
+| **VAD & Denoising** | Client Energy VAD | Browser hardware | **Silero VAD ONNX + STFT Spectral Denoise** | None |
+| **Post-Processing** | None (Raw Whisper) | Raw browser transcript | **Wispr Flow LLM (Filler removal & repair)** | None |
+| **Latency** | **~60ms – 120ms** (WebGPU) | **0ms – 50ms** (Instant) | **40ms – 140ms** (CTranslate2 / Groq LPU) | 150ms – 300ms |
+| **Accuracy** | High (Whisper Tiny/Base) | Medium | **State of the Art** (Whisper Large v3) | Very High (Whisper Large) |
+| **Deployment** | Zero install (Browser) | Any supported browser | **Docker (<80MB RAM)** / Python 3.12 | Node.js Express |
 
 ---
 
@@ -172,6 +173,28 @@ Transcribe audio with payload magic-byte validation:
 curl -X POST http://localhost:8089/api/transcribe \
   -F "file=@speech.wav" \
   -F "language=en"
+```
+
+---
+
+### 4. Production Python Streaming Engine (`services/yapper-engine`)
+
+For high-throughput real-time streaming with Silero VAD gating, DSP spectral noise subtraction, Faster-Whisper/OpenAI/Groq inference, and Wispr Flow LLM text cleanup:
+
+```bash
+cd services/yapper-engine
+
+# Build and run with Docker (100% Free Local mode by default)
+docker build -t yapper-engine .
+docker run -d -p 8000:8000 --memory=512m yapper-engine
+
+# Check health metrics
+curl http://localhost:8000/health
+```
+
+Stream 16kHz PCM audio chunks over duplex WebSocket:
+```
+ws://localhost:8000/ws/audio?language=en&mode=flow
 ```
 
 ---

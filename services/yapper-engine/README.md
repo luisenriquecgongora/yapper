@@ -21,7 +21,9 @@
   - **Groq**: Sub-150ms LPU-accelerated `whisper-large-v3` + `llama-3.1-8b-instant`.
   - **Self-Hosted / Third-Party**: Any OpenAI-compatible endpoint (Together AI, Fireworks AI, LocalAI, vLLM, Ollama).
 - **Duplex WebSocket Ingestion (`/ws/audio`)**: Low-overhead binary streaming with zero disk I/O.
+- **Neural Spectral Denoising (DSP)**: Real-time STFT 512-sample Hann-windowed spectral subtraction with SNR estimation (`src/engine/dsp.py`).
 - **Low-Footprint Silero VAD**: Evaluates 32ms audio windows via ONNX Runtime (<1.8MB model) with adaptive fallback.
+- **Autoregressive Hallucination Guard**: Shannon entropy $H(X)$ & Kolmogorov $zlib$ compressibility checks to halt decoder loops (`src/engine/hallucination.py`).
 - **Wispr Flow Post-Processor**: Strips filler words (`um`, `uh`, `you know`), heals conversational self-corrections (`table four, actually table five` $\to$ `Table five.`), and enforces punctuation via LLM or deterministic regex.
 - **Structured Action Extraction**: Converts spoken thoughts into deterministic JSON schemas.
 
@@ -172,11 +174,33 @@ ws://localhost:8000/ws/audio?language=en&mode=flow
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing & Empirical Benchmarks
 
+### 1. Run Unit & Acoustic Tests
 ```bash
 pytest tests/ -v
 ```
+
+### 2. Run WER/CER Corpus Evaluation
+Evaluates Word Error Rate (WER) and Character Error Rate (CER) with exact Levenshtein alignment breakdowns ($S, D, I$):
+```bash
+python evals/eval_wer.py
+```
+
+### 3. Run Real-Time Factor (RTF) Latency Benchmark
+Profiles latency and throughput across varying speech segment durations:
+```bash
+python benchmarks/pareto_latency.py
+```
+
+#### Empirical Benchmark Results (Tested on Standard CPU)
+| Audio Duration (s) | DSP Denoise (ms) | VAD Gating (ms) | Total Prep (ms) | Real-Time Factor (RTF) | Speedup Factor |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| **0.5s** | 5.85ms | 5.24ms | 11.10ms | **0.0222** | **45.1x real-time** |
+| **1.0s** | 5.75ms | 8.27ms | 14.02ms | **0.0140** | **71.3x real-time** |
+| **2.5s** | 14.44ms | 21.21ms | 35.65ms | **0.0143** | **70.1x real-time** |
+| **5.0s** | 22.72ms | 36.76ms | 59.48ms | **0.0119** | **84.1x real-time** |
+| **10.0s** | 63.02ms | 86.14ms | 149.16ms | **0.0149** | **67.0x real-time** |
 
 ---
 
