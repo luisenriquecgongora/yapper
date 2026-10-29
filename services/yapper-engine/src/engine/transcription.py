@@ -158,43 +158,46 @@ class LocalFasterWhisperTranscriber(BaseTranscriber):
 _TRANSCRIBER_CACHE: dict = {}
 
 
-def get_transcriber(backend: Optional[str] = None) -> BaseTranscriber:
+def get_transcriber(backend: Optional[str] = None, model_size: Optional[str] = None) -> BaseTranscriber:
     """Factory creating or returning the cached transcription provider."""
     selected = (backend or settings.effective_backend).lower()
+    cache_key = f"{selected}:{model_size or 'default'}"
 
-    if selected in _TRANSCRIBER_CACHE:
-        return _TRANSCRIBER_CACHE[selected]
+    if cache_key in _TRANSCRIBER_CACHE:
+        return _TRANSCRIBER_CACHE[cache_key]
+
+    effective_model = model_size or settings.LOCAL_WHISPER_MODEL
 
     if selected == "local":
         instance = LocalFasterWhisperTranscriber(
-            model_size=settings.LOCAL_WHISPER_MODEL,
+            model_size=effective_model,
             device=settings.LOCAL_WHISPER_DEVICE,
             compute_type=settings.LOCAL_WHISPER_COMPUTE_TYPE,
         )
     elif selected == "groq":
         instance = GroqTranscriber(
             api_key=settings.GROQ_API_KEY,
-            model=settings.GROQ_MODEL,
+            model=model_size or settings.GROQ_MODEL,
         )
     elif selected == "openai":
         instance = OpenAICompatibleTranscriber(
             api_key=settings.OPENAI_API_KEY,
             base_url=None,  # Standard api.openai.com
-            model=settings.OPENAI_MODEL,
+            model=model_size or settings.OPENAI_MODEL,
         )
     elif selected in ("custom", "openai_compatible"):
         instance = OpenAICompatibleTranscriber(
             api_key=settings.API_KEY or settings.OPENAI_API_KEY or "none",
             base_url=settings.API_BASE_URL,
-            model=settings.STT_MODEL or "whisper-1",
+            model=model_size or settings.STT_MODEL or "whisper-1",
         )
     else:
         logger.warning("Unrecognized backend '%s'. Defaulting to local Faster-Whisper.", selected)
         instance = LocalFasterWhisperTranscriber(
-            model_size=settings.LOCAL_WHISPER_MODEL,
+            model_size=effective_model,
             device=settings.LOCAL_WHISPER_DEVICE,
             compute_type=settings.LOCAL_WHISPER_COMPUTE_TYPE,
         )
 
-    _TRANSCRIBER_CACHE[selected] = instance
+    _TRANSCRIBER_CACHE[cache_key] = instance
     return instance

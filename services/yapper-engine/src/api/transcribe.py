@@ -4,7 +4,7 @@ import io
 import logging
 import time
 import wave
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from ..config import settings
@@ -35,6 +35,7 @@ async def transcribe_audio_endpoint(
     language: str = Query(default="en"),
     mode: str = Query(default="flow"),
     denoise: bool = Query(default=True),
+    model: Optional[str] = Query(default=None),
 ) -> Dict[str, Any]:
     """Transcribe an audio payload (WAV or 16-bit PCM) into clean text with Wispr Flow post-processing.
 
@@ -52,6 +53,10 @@ async def transcribe_audio_endpoint(
         if not uploaded_file or not hasattr(uploaded_file, "read"):
             raise HTTPException(status_code=400, detail="Missing 'file' field in multipart form data.")
         raw_audio_bytes = await uploaded_file.read()
+        if not model and "model" in form:
+            model = str(form.get("model"))
+        if language == "en" and "language" in form:
+            language = str(form.get("language"))
     else:
         raw_audio_bytes = await request.body()
 
@@ -67,7 +72,7 @@ async def transcribe_audio_endpoint(
         pcm_bytes = denoiser.denoise_pcm(pcm_bytes)
 
     # 4. Transcribe using active backend (Local Faster-Whisper, OpenAI, or Groq)
-    transcriber: BaseTranscriber = get_transcriber()
+    transcriber: BaseTranscriber = get_transcriber(model_size=model)
     try:
         raw_asr = await transcriber.transcribe(pcm_bytes, language=language)
     except Exception as exc:
