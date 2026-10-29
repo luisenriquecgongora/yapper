@@ -40,7 +40,8 @@ SETTINGS_FILE = SETTINGS_DIR / "hud_settings.json"
 
 
 def get_system_specs() -> dict:
-    """Detect total system physical RAM and host operating system."""
+    """Detect total system physical RAM, dedicated VRAM, GPU model, and host operating system."""
+    import platform
     ram_gb = 8.0
     try:
         import psutil
@@ -74,8 +75,103 @@ def get_system_specs() -> dict:
                 ram_gb = round(os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / (1024 ** 3), 1)
             except Exception:
                 pass
+
+    vram_gb = None
+    gpu_name = None
+    is_unified = False
+
+    # 1. macOS Unified Memory detection
+    if sys.platform == "darwin":
+        if platform.machine() == "arm64":
+            is_unified = True
+            vram_gb = ram_gb
+            gpu_name = "Apple Silicon Unified Memory"
+        else:
+            try:
+                import subprocess
+                out = subprocess.check_output(["system_profiler", "SPDisplaysDataType"], text=True, timeout=2)
+                for line in out.splitlines():
+                    if "Chipset Model" in line and not gpu_name:
+                        gpu_name = line.split(":", 1)[1].strip()
+                    if "VRAM" in line:
+                        parts = line.split(":", 1)
+                        if len(parts) > 1:
+                            val_str = parts[1].strip()
+                            if "GB" in val_str:
+                                vram_gb = float(val_str.replace("GB", "").strip())
+                            elif "MB" in val_str:
+                                vram_gb = round(float(val_str.replace("MB", "").strip()) / 1024, 1)
+            except Exception:
+                pass
+
+    # 2. Windows Registry GPU & VRAM detection (winreg) - zero-process, instantaneous
+    elif sys.platform == "win32":
+        try:
+            import winreg, struct
+            base_key = r"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, base_key) as k:
+                i = 0
+                best_vram = 0
+                best_name = None
+                while True:
+                    try:
+                        sub = winreg.EnumKey(k, i)
+                        i += 1
+                        if not sub.isdigit():
+                            continue
+                        with winreg.OpenKey(k, sub) as sk:
+                            try:
+                                desc, _ = winreg.QueryValueEx(sk, "DriverDesc")
+                            except Exception:
+                                continue
+                            if any(x in desc.lower() for x in ["basic", "virtual", "remote", "rdp", "miracast"]):
+                                continue
+                            cur_bytes = 0
+                            for vn in ("HardwareInformation.qwMemorySize", "HardwareInformation.MemorySize", "AdapterRAM"):
+                                try:
+                                    v, _ = winreg.QueryValueEx(sk, vn)
+                                    if isinstance(v, int) and v > cur_bytes:
+                                        cur_bytes = v
+                                    elif isinstance(v, bytes) and len(v) >= 4:
+                                        val = struct.unpack("<Q" if len(v) == 8 else "<I", v[:8] if len(v) == 8 else v[:4])[0]
+                                        if val > cur_bytes:
+                                            cur_bytes = val
+                                except Exception:
+                                    pass
+                            if cur_bytes > best_vram or (best_name is None and desc):
+                                best_vram = cur_bytes
+                                best_name = desc
+                    except OSError:
+                        break
+                if best_name and best_vram > 0:
+                    vram_gb = round(best_vram / (1024 ** 3), 1)
+                    gpu_name = best_name
+        except Exception:
+            pass
+
+    # 3. Fallback / Enhancement: nvidia-smi (Windows & Linux with NVIDIA drivers)
+    if not vram_gb:
+        try:
+            import subprocess
+            out = subprocess.check_output(
+                ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"],
+                stderr=subprocess.DEVNULL,
+                text=True,
+                timeout=2,
+            ).strip()
+            if out:
+                lines = out.splitlines()
+                first = lines[0].split(",")
+                gpu_name = first[0].strip()
+                vram_gb = round(float(first[1].strip()) / 1024, 1)
+        except Exception:
+            pass
+
     return {
         "ram_gb": ram_gb,
+        "vram_gb": vram_gb,
+        "gpu_name": gpu_name,
+        "is_unified": is_unified,
         "os_name": "macOS" if sys.platform == "darwin" else ("Windows" if sys.platform == "win32" else "Linux"),
     }
 
@@ -103,6 +199,7 @@ AVAILABLE_MODELS = [
         "lang_type": "English",
         "min_ram_gb": 2.0,
         "rec_ram_gb": 4.0,
+        "rec_vram_gb": 0.5,
         "desc": "Fastest (<150ms latency)",
     },
     {
@@ -112,6 +209,7 @@ AVAILABLE_MODELS = [
         "lang_type": "English",
         "min_ram_gb": 3.5,
         "rec_ram_gb": 5.5,
+        "rec_vram_gb": 1.0,
         "desc": "Balanced speed & accuracy",
     },
     {
@@ -121,6 +219,7 @@ AVAILABLE_MODELS = [
         "lang_type": "English",
         "min_ram_gb": 6.0,
         "rec_ram_gb": 8.0,
+        "rec_vram_gb": 2.0,
         "desc": "High accuracy for accents",
     },
     {
@@ -130,6 +229,7 @@ AVAILABLE_MODELS = [
         "lang_type": "Multilingual",
         "min_ram_gb": 2.0,
         "rec_ram_gb": 4.0,
+        "rec_vram_gb": 0.5,
         "desc": "Fast 99+ languages",
     },
     {
@@ -139,6 +239,7 @@ AVAILABLE_MODELS = [
         "lang_type": "Multilingual",
         "min_ram_gb": 3.5,
         "rec_ram_gb": 5.5,
+        "rec_vram_gb": 1.0,
         "desc": "Balanced 99+ languages",
     },
     {
@@ -148,6 +249,7 @@ AVAILABLE_MODELS = [
         "lang_type": "Multilingual",
         "min_ram_gb": 6.0,
         "rec_ram_gb": 8.0,
+        "rec_vram_gb": 2.0,
         "desc": "High precision multilingual",
     },
     {
@@ -157,6 +259,7 @@ AVAILABLE_MODELS = [
         "lang_type": "English",
         "min_ram_gb": 10.0,
         "rec_ram_gb": 14.0,
+        "rec_vram_gb": 3.5,
         "desc": "Studio precision",
     },
     {
@@ -166,43 +269,82 @@ AVAILABLE_MODELS = [
         "lang_type": "Multilingual",
         "min_ram_gb": 14.0,
         "rec_ram_gb": 24.0,
+        "rec_vram_gb": 5.0,
         "desc": "Studio model (GPU rec.)",
     },
 ]
 
 
-def get_model_compatibility(model_info: dict, ram_gb: float) -> tuple[str, str, str]:
+def get_model_compatibility(
+    model_info: dict,
+    ram_gb: float,
+    vram_gb: Optional[float] = None,
+    is_unified: bool = False,
+) -> tuple[str, str, str]:
     """Evaluate whether this model can run smoothly on the user's computer.
     
+    Prioritizes dedicated VRAM (for GPU acceleration), followed by system RAM for CPU fallback.
     Returns: (status, badge_label, color)
     - status: 'optimal' | 'compatible' | 'heavy' | 'unsupported'
-    - badge_label: e.g. '● Optimal for this PC', '● Compatible', '⚠️ Heavy on CPU', '❌ Too Heavy for this PC'
-    - color: '#2E7D32' (green), '#0D65D9' (blue), '#B57A22' (amber), '#C23B22' (red)
+    - color: '#2E7D32' (emerald green), '#0D65D9' (blue), '#B57A22' (amber), '#C23B22' (red)
     """
-    min_ram = model_info["min_ram_gb"]
-    rec_ram = model_info["rec_ram_gb"]
+    min_ram = model_info.get("min_ram_gb", 2.0)
+    rec_ram = model_info.get("rec_ram_gb", 4.0)
+    rec_vram = model_info.get("rec_vram_gb", 1.0)
     mid = model_info["id"]
 
-    if mid == "large-v3":
-        if ram_gb >= 14.0:
-            return "heavy", "⚠️ Heavy on CPU (GPU rec.)", "#B57A22"
+    # 1. Apple Silicon Unified Memory
+    if is_unified:
+        if ram_gb >= rec_ram:
+            return "optimal", f"⚡ GPU Ready (Unified {ram_gb:.0f}GB)", "#2E7D32"
+        elif ram_gb >= min_ram:
+            return "compatible", "● Supported (Unified Memory)", "#0D65D9"
         else:
-            return "unsupported", "❌ Too Heavy (Needs 16GB+ & GPU)", "#C23B22"
+            return "unsupported", f"❌ Needs {int(min_ram)}GB+ Unified Memory", "#C23B22"
+
+    # 2. Dedicated GPU VRAM present
+    if vram_gb is not None and vram_gb > 0:
+        if vram_gb >= rec_vram:
+            if mid in ["tiny.en", "tiny"]:
+                return "optimal", "⚡ GPU Ready (Blazing Fast)", "#2E7D32"
+            elif mid in ["base.en", "base"]:
+                return "optimal", "⚡ GPU Accelerated (~100ms)", "#2E7D32"
+            elif mid in ["small.en", "small"]:
+                return "optimal", "⚡ GPU Ready (High Accuracy)", "#2E7D32"
+            elif mid == "medium.en":
+                return "optimal", "⚡ GPU Ready (Studio Precision)", "#2E7D32"
+            elif mid == "large-v3":
+                return "optimal", "⚡ GPU Ready (Large-v3)", "#2E7D32"
+        else:
+            # Model needs more VRAM than available -> falls back to CPU
+            if ram_gb >= rec_ram:
+                return "compatible", f"● Runs on CPU (Needs {rec_vram:.1f}GB VRAM for GPU)", "#0D65D9"
+            elif ram_gb >= min_ram:
+                return "heavy", f"⚠️ CPU Mode (Needs {rec_vram:.1f}GB VRAM for GPU)", "#B57A22"
+            else:
+                return "unsupported", f"❌ Insufficient RAM (Needs {int(min_ram)}GB+)", "#C23B22"
+
+    # 3. CPU / Integrated Graphics Mode (no dedicated VRAM)
+    if mid == "large-v3":
+        if ram_gb >= 16.0:
+            return "heavy", "⚠️ Heavy on CPU (GPU recommended)", "#B57A22"
+        else:
+            return "unsupported", "❌ Needs 16GB+ RAM & Dedicated GPU", "#C23B22"
 
     if ram_gb >= rec_ram:
         if mid in ["tiny.en", "tiny"]:
-            return "optimal", "● Optimal (Lightning Fast)", "#2E7D32"
+            return "optimal", "● Optimal CPU (Fast)", "#2E7D32"
         elif mid in ["base.en", "base"]:
             return "optimal", "● Optimal for this PC", "#2E7D32"
         elif mid in ["small.en", "small"]:
-            return "optimal", "● Optimal (High Accuracy)", "#2E7D32"
+            return "optimal", "● Compatible CPU (High Accuracy)", "#2E7D32"
         elif mid == "medium.en":
-            return "compatible", "● Supported (Studio)", "#2E7D32"
+            return "compatible", "● Supported on CPU", "#0D65D9"
     elif ram_gb >= min_ram:
         if mid == "medium.en":
             return "heavy", "⚠️ High RAM Usage (May lag)", "#B57A22"
         else:
-            return "compatible", "● Compatible with this PC", "#0D65D9"
+            return "compatible", "● Compatible (CPU Mode)", "#0D65D9"
     else:
         return "unsupported", f"❌ Heavy (Requires {int(min_ram)}GB+ RAM)", "#C23B22"
 
@@ -257,7 +399,7 @@ class YapperDesktopHUD:
         # Positioning: Start in top-right corner of primary monitor
         screen_w = self.root.winfo_screenwidth()
         self.pill_w, self.pill_h = 350, 52
-        self.expanded_h = 430
+        self.expanded_h = 445
         pos_x = screen_w - self.pill_w - 30
         pos_y = 50
         self.root.geometry(f"{self.pill_w}x{self.pill_h}+{pos_x}+{pos_y}")
@@ -535,25 +677,57 @@ class YapperDesktopHUD:
         collapse_btn.bind("<Enter>", _on_collapse_enter)
         collapse_btn.bind("<Leave>", _on_collapse_leave)
 
-        # 2. System Hardware Specs Banner
+        # 2. System Hardware Specs Banner (VRAM & Dedicated GPU prioritized, followed by System RAM)
         hw_frame = tk.Frame(self.settings_drawer, bg="#F4EFE6", bd=1, relief="solid", padx=8, pady=4)
         hw_frame.pack(fill="x", pady=(0, 6))
 
         ram_val = self.system_specs.get("ram_gb", 8.0)
+        vram_val = self.system_specs.get("vram_gb")
+        gpu_name = self.system_specs.get("gpu_name")
+        is_unified = self.system_specs.get("is_unified", False)
         os_val = self.system_specs.get("os_name", "PC")
-        hw_title = tk.Label(
+
+        # Top row: Dedicated VRAM (Most critical for Whisper inference)
+        if is_unified:
+            vram_title = f"🎮 Unified VRAM: {ram_val:.1f} GB (Apple Silicon High-Bandwidth)"
+            vram_color = "#2E7D32"
+        elif vram_val and gpu_name:
+            gpu_short = gpu_name.replace("GeForce ", "").replace("Graphics", "").strip()
+            vram_title = f"🎮 Dedicated VRAM: {vram_val:.1f} GB ({gpu_short})"
+            vram_color = "#2E7D32" if vram_val >= 3.0 else "#B57A22"
+        elif vram_val:
+            vram_title = f"🎮 Dedicated VRAM: {vram_val:.1f} GB"
+            vram_color = "#2E7D32" if vram_val >= 3.0 else "#B57A22"
+        else:
+            vram_title = "🎮 GPU VRAM: Integrated / Shared (CPU Mode)"
+            vram_color = "#736056"
+
+        hw_vram_lbl = tk.Label(
             hw_frame,
-            text=f"💻 Your {os_val}: {ram_val:.1f} GB RAM · Local AI Ready",
+            text=vram_title,
             font=("Segoe UI", 8, "bold"),
+            fg=vram_color,
+            bg="#F4EFE6",
+            anchor="w",
+        )
+        hw_vram_lbl.pack(fill="x")
+
+        # Second row: System RAM
+        ram_title = f"💻 System RAM: {ram_val:.1f} GB ({os_val}) · Local AI Ready"
+        hw_ram_lbl = tk.Label(
+            hw_frame,
+            text=ram_title,
+            font=("Segoe UI", 7, "bold"),
             fg="#3D3028",
             bg="#F4EFE6",
             anchor="w",
         )
-        hw_title.pack(fill="x")
+        hw_ram_lbl.pack(fill="x")
 
+        # Third row: Subtitle explaining compatibility & GPU acceleration
         hw_sub = tk.Label(
             hw_frame,
-            text="Compatibility calculated for each model below:",
+            text="⚡ Compatibility & GPU acceleration calculated for each model:",
             font=("Segoe UI", 7),
             fg="#736056",
             bg="#F4EFE6",
@@ -675,10 +849,14 @@ class YapperDesktopHUD:
     def _build_model_cards(self, mousewheel_handler) -> None:
         """Construct individual card elements for each available Whisper model."""
         ram_gb = self.system_specs.get("ram_gb", 8.0)
+        vram_gb = self.system_specs.get("vram_gb")
+        is_unified = self.system_specs.get("is_unified", False)
 
         for m in AVAILABLE_MODELS:
             mid = m["id"]
-            compat_status, compat_text, compat_color = get_model_compatibility(m, ram_gb)
+            compat_status, compat_text, compat_color = get_model_compatibility(
+                m, ram_gb=ram_gb, vram_gb=vram_gb, is_unified=is_unified
+            )
 
             card = tk.Frame(
                 self.models_content,
