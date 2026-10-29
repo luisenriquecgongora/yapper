@@ -31,14 +31,38 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 DIST_DIR = ROOT_DIR / "dist"
 
 
+import time
+
+def load_fallback_env():
+    possible_envs = [
+        ROOT_DIR / ".env",
+        ROOT_DIR.parent / "takient" / "api-takient" / ".env",
+        ROOT_DIR.parent / "robot_cloud" / ".env",
+    ]
+    for env_path in possible_envs:
+        if env_path.exists():
+            try:
+                for line in env_path.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k, v = k.strip(), v.strip()
+                        if k not in os.environ:
+                            os.environ[k] = v
+            except Exception as e:
+                logger.warning("Could not read %s: %s", env_path, e)
+
+
 def publish_release(version: str = "1.0.0", prefix: str = "yapper") -> None:
     if boto3 is None:
         raise SystemExit("Missing 'boto3'. Run: pip install boto3")
 
+    load_fallback_env()
+
     account_id = os.environ.get("R2_ACCOUNT_ID", "844652102876c425902bc592a2e072b2")
-    access_key = os.environ.get("R2_ACCESS_KEY_ID")
-    secret_key = os.environ.get("R2_SECRET_ACCESS_KEY")
-    bucket = os.environ.get("R2_BUCKET_NAME", "plaatoos-downloads")
+    access_key = os.environ.get("R2_DOWNLOAD_ACCESS_KEY_ID") or os.environ.get("R2_ACCESS_KEY_ID")
+    secret_key = os.environ.get("R2_DOWNLOAD_SECRET_ACCESS_KEY") or os.environ.get("R2_SECRET_ACCESS_KEY")
+    bucket = os.environ.get("R2_DOWNLOAD_BUCKET") or os.environ.get("R2_BUCKET_NAME", "plaatoos-downloads")
     custom_domain = os.environ.get("R2_CUSTOM_DOMAIN", "https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev").rstrip("/")
 
     if not all([account_id, access_key, secret_key]):
@@ -65,7 +89,7 @@ def publish_release(version: str = "1.0.0", prefix: str = "yapper") -> None:
         endpoint_url=r2_endpoint,
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
-        config=Config(signature_version="s3v4"),
+        config=Config(signature_version="s3v4", retries={"max_attempts": 5, "mode": "standard"}),
         region_name="auto",
     )
 
@@ -97,15 +121,28 @@ def publish_release(version: str = "1.0.0", prefix: str = "yapper") -> None:
     for src_path, target_key, mime_type, cache_ctrl in uploads:
         size_mb = src_path.stat().st_size / (1024 * 1024)
         logger.info("Uploading %s -> %s (%0.2f MB)...", src_path.name, target_key, size_mb)
-        s3.upload_file(
-            str(src_path),
-            bucket,
-            target_key,
-            ExtraArgs={
-                "ContentType": mime_type,
-                "CacheControl": cache_ctrl,
-            },
-        )
+        
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                s3.upload_file(
+                    str(src_path),
+                    bucket,
+                    target_key,
+                    ExtraArgs={
+                        "ContentType": mime_type,
+                        "CacheControl": cache_ctrl,
+                    },
+                )
+                logger.info(" -> Uploaded successfully: %s", target_key)
+                break
+            except Exception as exc:
+                if attempt < max_retries:
+                    logger.warning("Upload attempt %d/%d failed for %s (%s). Retrying in 2s...", attempt, max_retries, target_key, exc)
+                    time.sleep(2)
+                else:
+                    logger.error("Failed to upload %s after %d attempts: %s", target_key, max_retries, exc)
+                    raise
 
     logger.info("==================================================================")
     logger.info("🎉 CLOUDFLARE R2 RELEASE PUBLISHED SUCCESSFULLY!")
