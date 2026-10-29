@@ -38,29 +38,45 @@ def download_from_r2_cdn(
 ) -> bool:
     """Download pre-packaged model bundle directly from Cloudflare R2 edge CDN."""
     base_url = (cdn_base_url or DEFAULT_R2_CDN_URL).rstrip("/")
-    archive_url = f"{base_url}/whisper/{model_name}.tar.gz"
+    candidate_urls = [
+        f"{base_url}/yapper/models/{model_name}.tar.gz",
+        f"{base_url}/whisper/{model_name}.tar.gz",
+    ]
     target_dir = get_local_model_dir(model_name)
     target_dir.mkdir(parents=True, exist_ok=True)
     tar_path = target_dir / f"{model_name}.tar.gz"
 
-    logger.info("Attempting Cloudflare R2 CDN download from: %s", archive_url)
-    if progress_callback:
-        progress_callback(0.05, f"Connecting to R2 CDN ({model_name})...")
+    import requests
+
+    headers = {"User-Agent": "YapperEngine/1.0 (+https://yapper.plaatoos.com)"}
+    resp = None
+    chosen_url = None
+
+    for url in candidate_urls:
+        logger.info("Attempting Cloudflare R2 CDN download from: %s", url)
+        if progress_callback:
+            progress_callback(0.05, f"Connecting to R2 CDN ({model_name})...")
+        try:
+            try:
+                r = requests.get(url, headers=headers, stream=True, timeout=20)
+            except requests.exceptions.SSLError:
+                logger.warning("R2 SSL verification failed, retrying with unverified context...")
+                r = requests.get(url, headers=headers, stream=True, timeout=20, verify=False)
+
+            if r.status_code == 200:
+                resp = r
+                chosen_url = url
+                break
+            else:
+                logger.info("R2 URL %s returned status %d", url, r.status_code)
+        except Exception as e:
+            logger.info("R2 candidate %s check failed: %s", url, e)
+
+    if not resp:
+        logger.warning("All R2 CDN candidate URLs for '%s' failed. Falling back to Hugging Face.", model_name)
+        return False
 
     try:
-        import requests
-
-        headers = {"User-Agent": "YapperEngine/1.0 (+https://yapper.plaatoos.com)"}
-        try:
-            resp = requests.get(archive_url, headers=headers, stream=True, timeout=20)
-        except requests.exceptions.SSLError:
-            logger.warning("R2 SSL verification failed, retrying with unverified context...")
-            resp = requests.get(archive_url, headers=headers, stream=True, timeout=20, verify=False)
-
-        if resp.status_code != 200:
-            logger.warning("R2 CDN returned status %d for %s. Falling back to Hugging Face.", resp.status_code, archive_url)
-            return False
-
         total_size = int(resp.headers.get("content-length", 0))
         downloaded = 0
         chunk_size = 256 * 1024  # 256 KB
