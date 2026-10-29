@@ -29,6 +29,22 @@ function parseCommitType(msg: string): { type: string; title: string; colorClass
 const WINDOWS_RELEASE_URL = "https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip";
 const MACOS_RELEASE_URL = "https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-macos.zip";
 
+function WindowsIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 88 88" fill="currentColor">
+      <path d="M0 12.402l35.689-4.86.016 34.423-35.67.203zm35.67 33.529l.026 34.453-35.67-4.887-.026-29.566zm4.326-39.027L87.914 0v41.526l-47.918.37zm47.918 45.474v41.622l-47.918-6.745V52.001z"/>
+    </svg>
+  );
+}
+
+function AppleIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 170 170" fill="currentColor">
+      <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.74 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.08-7.66-7.85-11.9-14.3-6.52-9.91-11.59-21.26-15.2-34.07-3.6-12.82-5.41-24.87-5.41-36.17 0-14.15 3.51-26.06 10.53-35.73 7.02-9.67 15.82-14.65 26.4-14.94 4.89 0 10.38 1.34 16.48 4.02 6.09 2.68 10.15 4.08 12.18 4.2 2.68-.45 6.84-1.85 12.49-4.2 5.64-2.35 10.74-3.41 15.29-3.18 11.94.89 21.36 5.59 28.26 14.1-10.42 6.34-15.53 15.21-15.34 26.6.19 8.94 3.63 16.43 10.33 22.48 6.7 6.05 14.73 9.49 24.1 10.32-2.12 6.54-4.8 13.62-8.05 21.24zM119.22 31.84c0-7.38 2.64-14.42 7.91-21.11 5.28-6.69 11.89-10.73 19.84-12.13.23 1.12.35 2.12.35 3.02 0 7.37-2.79 14.36-8.38 20.97-5.59 6.6-12.16 10.46-19.72 11.58z"/>
+    </svg>
+  );
+}
+
 export function App() {
   const [userOS, setUserOS] = useState<'mac' | 'windows' | 'linux'>('windows');
   const [modelSize, setModelSize] = useState<ModelSize>('tiny');
@@ -115,6 +131,11 @@ export function App() {
       setMenuDrawerRendered(false);
       setShowMenuDrawer(false);
     }, 300);
+  };
+
+  const openDesktopInstructions = () => {
+    setActiveTab('desktop');
+    document.getElementById('tech-appendix')?.scrollIntoView({ behavior: 'smooth' });
   };
   
   // Continuous manuscript letter accumulator
@@ -287,19 +308,32 @@ export function App() {
           </span>
         </div>
 
-        <div className="flex items-center gap-2.5 sm:gap-3 text-sm">
+        <div className="flex items-center gap-2 sm:gap-3 text-sm">
+          {/* Primary Header CTA: Download Desktop Voice HUD */}
+          <a
+            href={primaryDownloadUrl}
+            className="px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full bg-gradient-to-r from-[#C23B22] to-[#E34A3B] hover:from-[#A8321D] hover:to-[#C23B22] text-[#FAF5EB] text-xs font-semibold flex items-center gap-1.5 sm:gap-2 shadow-xs hover:shadow-md transition-all cursor-pointer font-sans"
+            title={`Download Yapper Desktop HUD for ${userOS === 'mac' ? 'macOS' : 'Windows'} (.zip)`}
+          >
+            {userOS === 'mac' ? <AppleIcon className="w-3.5 h-3.5 fill-current shrink-0" /> : <WindowsIcon className="w-3.5 h-3.5 fill-current shrink-0" />}
+            <span className="tracking-tight">Download HUD</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 font-mono hidden sm:inline">
+              {userOS === 'mac' ? 'Mac' : 'Windows'}
+            </span>
+          </a>
+
           {/* GitHub link visible in header at all times */}
           <a
             href="https://github.com/luisenriquecgongora/yapper"
             target="_blank"
             rel="noreferrer"
-            className="px-3 py-1.5 rounded-full border border-[#D7C3AF] hover:border-[#C23B22] hover:bg-[#F2EBE0] transition-all text-xs font-mono font-medium text-[#594A42] flex items-center gap-1.5 shadow-xs"
+            className="hidden xs:flex px-3 py-1.5 rounded-full border border-[#D7C3AF] hover:border-[#C23B22] hover:bg-[#F2EBE0] transition-all text-xs font-mono font-medium text-[#594A42] items-center gap-1.5 shadow-xs"
             title="View source repository on GitHub"
           >
             <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
               <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
             </svg>
-            <span className="hidden xs:inline">GitHub</span>
+            <span>GitHub</span>
           </a>
 
           {/* Hamburger Menu Button */}
@@ -442,6 +476,107 @@ export function App() {
       {/* Main Desktop Split Workspace */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 flex-1 w-full space-y-12 relative z-10">
         
+        {/* ========================================================================= */}
+        {/* HERO SHOWCASE & PRIMARY CTA SECTION (Desktop Voice HUD)                  */}
+        {/* ========================================================================= */}
+        <section className="text-center max-w-4xl mx-auto space-y-6 pt-2 pb-2">
+          
+          {/* Top Pill / Badge */}
+          <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-[#FAF6EE] border border-[#D7C3AF] shadow-xs text-xs font-mono text-[#594A42]">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#C23B22] shadow-[0_0_8px_rgba(194,59,34,0.6)] animate-pulse" />
+            <span className="font-semibold text-[#251C17]">Yapper Desktop Voice HUD</span>
+            <span className="text-[#8C776E]/60">·</span>
+            <span className="text-[#C23B22] font-medium">Wispr Flow for your whole OS</span>
+            <span className="hidden sm:inline text-[10px] px-2 py-0.5 rounded-full bg-[#EFE7DC] text-[#736056] border border-[#D7C3AF]/50">
+              v1.0.0
+            </span>
+          </div>
+
+          {/* Hero Headline */}
+          <div className="space-y-4">
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-serif font-normal tracking-tight text-[#251C17] leading-[1.12]">
+              Speak softly. <br />
+              <span className="italic font-medium text-[#C23B22]">Your voice writes itself</span> into any app.
+            </h1>
+            <p className="text-base sm:text-xl text-[#736056] max-w-2xl mx-auto font-sans font-light leading-relaxed">
+              A private, zero-latency desktop voice HUD. Click into <strong className="text-[#251C17] font-medium">VS Code, Notion, Slack, Word, or Chrome</strong>, press <kbd className="px-2 py-0.5 rounded-lg bg-[#FAF6EE] border border-[#D7C3AF] text-[#C23B22] font-mono text-xs sm:text-sm shadow-xs font-semibold">{defaultHotkeyLabel}</kbd>, and speak. Your thoughts are cleaned of filler words and typed automatically.
+            </p>
+          </div>
+
+          {/* MAIN DOWNLOAD CTA BUTTONS CLUSTER */}
+          <div className="pt-2 flex flex-col items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3.5 w-full max-w-xl">
+              
+              {/* PRIMARY CTA: Auto-detected OS Download Button */}
+              <a
+                href={primaryDownloadUrl}
+                className="group flex-1 px-6 py-4 rounded-2xl bg-gradient-to-tr from-[#C23B22] via-[#D94528] to-[#E34A3B] hover:from-[#A8321D] hover:to-[#C23B22] text-[#FAF5EB] font-sans transition-all duration-200 shadow-md hover:shadow-xl hover:-translate-y-0.5 flex items-center justify-center gap-3.5 cursor-pointer border border-[#C23B22]/30"
+                title={`Download Yapper Desktop HUD for ${userOS === 'mac' ? 'macOS' : 'Windows'} (v1.0.0)`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white shrink-0 group-hover:scale-110 transition-transform shadow-xs">
+                  {userOS === 'mac' ? <AppleIcon className="w-5 h-5 fill-current" /> : <WindowsIcon className="w-5 h-5 fill-current" />}
+                </div>
+                <div className="text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-base sm:text-lg leading-none tracking-tight">
+                      Download for {userOS === 'mac' ? 'macOS' : 'Windows'}
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/20 font-mono uppercase font-semibold">
+                      Free v1.0.0
+                    </span>
+                  </div>
+                  <span className="text-xs text-[#FAF5EB]/85 font-mono block mt-1">
+                    {userOS === 'mac' ? 'Apple Silicon & Intel (.zip)' : '64-bit Portable (.zip) · No setup'}
+                  </span>
+                </div>
+              </a>
+
+              {/* SECONDARY CTA: Alternative OS Download */}
+              <a
+                href={secondaryDownloadUrl}
+                className="px-4 sm:px-5 py-4 rounded-2xl bg-[#FAF6EE] hover:bg-[#EFE7DC] border-2 border-[#D7C3AF] hover:border-[#C23B22] text-[#594A42] hover:text-[#C23B22] font-mono text-xs transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                title={`Download Yapper for ${secondaryOsLabel}`}
+              >
+                {userOS === 'mac' ? <WindowsIcon className="w-4 h-4 fill-current shrink-0 text-[#736056]" /> : <AppleIcon className="w-4 h-4 fill-current shrink-0 text-[#736056]" />}
+                <span>{userOS === 'mac' ? 'Windows (.zip)' : 'macOS (.zip)'}</span>
+                <span className="text-[#8C776E]">↓</span>
+              </a>
+
+            </div>
+
+            {/* Micro Guarantees / Value Props */}
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-mono text-[#736056] pt-1">
+              <span className="flex items-center gap-1.5">
+                <span className="text-[#C23B22] font-semibold">✓</span> 100% On-Device &amp; Private
+              </span>
+              <span className="text-[#D7C3AF]">·</span>
+              <span className="flex items-center gap-1.5">
+                <span className="text-[#C23B22] font-semibold">✓</span> Zero Cloud API Costs
+              </span>
+              <span className="text-[#D7C3AF]">·</span>
+              <span className="flex items-center gap-1.5">
+                <span className="text-[#C23B22] font-semibold">✓</span> Wispr Flow Text Cleanup
+              </span>
+              <span className="text-[#D7C3AF]">·</span>
+              <button
+                type="button"
+                onClick={openDesktopInstructions}
+                className="text-[#C23B22] hover:underline cursor-pointer flex items-center gap-1 font-sans font-medium"
+              >
+                <span>Setup &amp; Hotkeys</span>
+                <span>→</span>
+              </button>
+            </div>
+
+            {/* Live Interactive In-Browser Demo Teaser Divider */}
+            <div className="pt-6 w-full max-w-2xl mx-auto flex items-center gap-3 text-xs text-[#8C776E] font-serif italic">
+              <span className="h-px bg-[#D7C3AF]/70 flex-1" />
+              <span>Or try the live in-browser WebGPU playground right here</span>
+              <span className="h-px bg-[#D7C3AF]/70 flex-1" />
+            </div>
+          </div>
+        </section>
+
         {/* Top Split Layout: Left Controls & Wax Seal Orb | Right Full-Height Letter Sheet */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
           
@@ -554,22 +689,53 @@ export function App() {
               </p>
             </div>
 
-            {/* Desktop App Quick Banner */}
-            <div className="w-full max-w-md mx-auto flex items-center justify-between px-4 py-2 rounded-2xl bg-[#F2EBE0] border border-[#D7C3AF]/80 text-xs font-mono shadow-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-sm">🎙️</span>
-                <span className="text-[#594A42] text-[11px]">
-                  {userOS === 'mac' ? 'Type anywhere in macOS:' : 'Type anywhere in Windows:'}
+            {/* Desktop HUD Interactive Download Card */}
+            <div className="paper-card rounded-2xl p-4 sm:p-5 space-y-3.5 text-center bg-[#FAF6EE] border-2 border-[#D7C3AF] hover:border-[#C23B22]/60 transition-all shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#C23B22] shadow-[0_0_8px_rgba(194,59,34,0.6)] animate-pulse" />
+                  <span className="text-xs font-serif italic font-medium text-[#251C17]">
+                    Desktop Voice HUD
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#EFE7DC] text-[#736056] border border-[#D7C3AF]/60">
+                  {userOS === 'mac' ? 'macOS' : 'Windows'}
                 </span>
               </div>
+
+              {/* Mini HUD Pill preview */}
+              <div className="py-2 px-3 rounded-full bg-[#251C17] text-[#FAF5EB] flex items-center justify-between text-[11px] font-mono shadow-inner border border-[#3A2D25]">
+                <div className="flex items-center gap-2 truncate">
+                  <span className="w-2 h-2 rounded-full bg-[#E34A3B] animate-ping" />
+                  <span className="truncate">Speak aloud · {defaultHotkeyLabel}</span>
+                </div>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3A2D25] text-[#D7C3AF]">
+                  Esc Cancel
+                </span>
+              </div>
+
+              <p className="text-[11px] text-[#736056] font-light leading-relaxed">
+                Floats over VS Code, Notion, Slack, and Chrome. Types automatically at your cursor.
+              </p>
+
               <a
                 href={primaryDownloadUrl}
-                className="inline-flex items-center gap-1 text-[#C23B22] hover:text-[#8C2514] font-semibold text-[11px] hover:underline cursor-pointer"
-                title={`Download Yapper for ${userOS === 'mac' ? 'macOS' : 'Windows'} (.zip)`}
+                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#C23B22] to-[#E34A3B] hover:from-[#A8321D] hover:to-[#C23B22] text-[#FAF5EB] text-xs font-semibold flex items-center justify-center gap-2 shadow-xs hover:shadow-md transition-all cursor-pointer font-sans"
+                title={`Download Yapper Desktop HUD for ${userOS === 'mac' ? 'macOS' : 'Windows'}`}
               >
-                <span>{userOS === 'mac' ? 'Get Mac App' : 'Get Desktop App'}</span>
-                <span>↓</span>
+                {userOS === 'mac' ? <AppleIcon className="w-3.5 h-3.5 fill-current shrink-0" /> : <WindowsIcon className="w-3.5 h-3.5 fill-current shrink-0" />}
+                <span>Download Desktop HUD (.zip)</span>
               </a>
+
+              <div className="flex items-center justify-between text-[10px] font-mono text-[#8C776E] pt-1 border-t border-[#D7C3AF]/50">
+                <span>Other system:</span>
+                <a
+                  href={secondaryDownloadUrl}
+                  className="text-[#C23B22] hover:underline cursor-pointer font-medium"
+                >
+                  Download for {secondaryOsLabel}
+                </a>
+              </div>
             </div>
           </div>
 
@@ -880,7 +1046,8 @@ export function App() {
                   : 'text-[#736056] hover:text-[#251C17] hover:bg-[#F2EBE0]'
               }`}
             >
-              <span>Desktop App (Windows)</span>
+              {userOS === 'mac' ? <AppleIcon className="w-3.5 h-3.5 fill-current" /> : <WindowsIcon className="w-3.5 h-3.5 fill-current" />}
+              <span>Desktop HUD ({userOS === 'mac' ? 'macOS' : 'Windows'}) ⬇</span>
             </button>
             <button
               onClick={() => setActiveTab('commits')}
@@ -1282,12 +1449,10 @@ python clients/desktop_hud.py`}</pre>
                   </p>
                   <a
                     href={primaryDownloadUrl}
-                    className="w-full py-2.5 px-3 rounded-xl bg-[#C23B22] hover:bg-[#A8321D] text-[#FAF5EB] text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs hover:shadow-md"
+                    className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#C23B22] to-[#E34A3B] hover:from-[#A8321D] hover:to-[#C23B22] text-[#FAF5EB] text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs hover:shadow-md"
                     title={`Download Yapper Desktop HUD for ${userOS === 'mac' ? 'macOS' : 'Windows'}`}
                   >
-                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
+                    {userOS === 'mac' ? <AppleIcon className="w-3.5 h-3.5 fill-current shrink-0" /> : <WindowsIcon className="w-3.5 h-3.5 fill-current shrink-0" />}
                     <span>Download for {userOS === 'mac' ? 'Mac (Apple Silicon & Intel)' : 'Windows (64-bit)'}</span>
                   </a>
                   <div className="flex items-center justify-between text-[10px] font-mono text-[#8C776E] pt-1 border-t border-[#D7C3AF]/40">
