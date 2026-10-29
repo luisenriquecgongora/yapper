@@ -10,6 +10,7 @@ import io
 import json
 import logging
 import os
+import queue
 import sys
 import threading
 import time
@@ -37,17 +38,174 @@ SAMPLE_RATE = 16000
 SETTINGS_DIR = Path.home() / ".cache" / "yapper"
 SETTINGS_FILE = SETTINGS_DIR / "hud_settings.json"
 
+
+def get_system_specs() -> dict:
+    """Detect total system physical RAM and host operating system."""
+    ram_gb = 8.0
+    try:
+        import psutil
+        ram_gb = round(psutil.virtual_memory().total / (1024 ** 3), 1)
+    except Exception:
+        if sys.platform == "win32":
+            try:
+                import ctypes
+
+                class MEMORYSTATUSEX(ctypes.Structure):
+                    _fields_ = [
+                        ("dwLength", ctypes.c_ulong),
+                        ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", ctypes.c_ulonglong),
+                        ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong),
+                        ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong),
+                        ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                    ]
+
+                stat = MEMORYSTATUSEX()
+                stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+                if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+                    ram_gb = round(stat.ullTotalPhys / (1024 ** 3), 1)
+            except Exception:
+                pass
+        else:
+            try:
+                ram_gb = round(os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / (1024 ** 3), 1)
+            except Exception:
+                pass
+    return {
+        "ram_gb": ram_gb,
+        "os_name": "macOS" if sys.platform == "darwin" else ("Windows" if sys.platform == "win32" else "Linux"),
+    }
+
+
+def check_is_cached(model_id: str) -> bool:
+    """Verify if model weights are already downloaded in local cache directory."""
+    try:
+        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "services", "yapper-engine")))
+        from src.engine.model_loader import is_model_cached_locally
+        return is_model_cached_locally(model_id)
+    except Exception:
+        target_dir = Path.home() / ".cache" / "yapper" / "models" / model_id
+        if not target_dir.is_dir():
+            return False
+        required = ["model.bin", "config.json", "tokenizer.json", "vocabulary.txt"]
+        return all((target_dir / f).is_file() and (target_dir / f).stat().st_size > 100 for f in required)
+
+
 # Available Whisper models & friendly display labels
 AVAILABLE_MODELS = [
-    ("tiny.en (Fastest · 75 MB)", "tiny.en"),
-    ("base.en (Balanced · 145 MB)", "base.en"),
-    ("small.en (Accurate · 480 MB)", "small.en"),
-    ("medium.en (Precision · 1.5 GB)", "medium.en"),
-    ("tiny (Multilingual · 75 MB)", "tiny"),
-    ("base (Multilingual · 145 MB)", "base"),
-    ("small (Multilingual · 480 MB)", "small"),
-    ("large-v3 (Studio · 3.1 GB)", "large-v3"),
+    {
+        "id": "tiny.en",
+        "name": "Whisper Tiny.en",
+        "size_str": "75 MB",
+        "lang_type": "English",
+        "min_ram_gb": 2.0,
+        "rec_ram_gb": 4.0,
+        "desc": "Fastest (<150ms latency)",
+    },
+    {
+        "id": "base.en",
+        "name": "Whisper Base.en",
+        "size_str": "145 MB",
+        "lang_type": "English",
+        "min_ram_gb": 3.5,
+        "rec_ram_gb": 5.5,
+        "desc": "Balanced speed & accuracy",
+    },
+    {
+        "id": "small.en",
+        "name": "Whisper Small.en",
+        "size_str": "480 MB",
+        "lang_type": "English",
+        "min_ram_gb": 6.0,
+        "rec_ram_gb": 8.0,
+        "desc": "High accuracy for accents",
+    },
+    {
+        "id": "tiny",
+        "name": "Whisper Tiny (Multi)",
+        "size_str": "75 MB",
+        "lang_type": "Multilingual",
+        "min_ram_gb": 2.0,
+        "rec_ram_gb": 4.0,
+        "desc": "Fast 99+ languages",
+    },
+    {
+        "id": "base",
+        "name": "Whisper Base (Multi)",
+        "size_str": "145 MB",
+        "lang_type": "Multilingual",
+        "min_ram_gb": 3.5,
+        "rec_ram_gb": 5.5,
+        "desc": "Balanced 99+ languages",
+    },
+    {
+        "id": "small",
+        "name": "Whisper Small (Multi)",
+        "size_str": "480 MB",
+        "lang_type": "Multilingual",
+        "min_ram_gb": 6.0,
+        "rec_ram_gb": 8.0,
+        "desc": "High precision multilingual",
+    },
+    {
+        "id": "medium.en",
+        "name": "Whisper Medium.en",
+        "size_str": "1.5 GB",
+        "lang_type": "English",
+        "min_ram_gb": 10.0,
+        "rec_ram_gb": 14.0,
+        "desc": "Studio precision",
+    },
+    {
+        "id": "large-v3",
+        "name": "Whisper Large-v3",
+        "size_str": "3.1 GB",
+        "lang_type": "Multilingual",
+        "min_ram_gb": 14.0,
+        "rec_ram_gb": 24.0,
+        "desc": "Studio model (GPU rec.)",
+    },
 ]
+
+
+def get_model_compatibility(model_info: dict, ram_gb: float) -> tuple[str, str, str]:
+    """Evaluate whether this model can run smoothly on the user's computer.
+    
+    Returns: (status, badge_label, color)
+    - status: 'optimal' | 'compatible' | 'heavy' | 'unsupported'
+    - badge_label: e.g. '● Optimal for this PC', '● Compatible', '⚠️ Heavy on CPU', '❌ Too Heavy for this PC'
+    - color: '#2E7D32' (green), '#0D65D9' (blue), '#B57A22' (amber), '#C23B22' (red)
+    """
+    min_ram = model_info["min_ram_gb"]
+    rec_ram = model_info["rec_ram_gb"]
+    mid = model_info["id"]
+
+    if mid == "large-v3":
+        if ram_gb >= 14.0:
+            return "heavy", "⚠️ Heavy on CPU (GPU rec.)", "#B57A22"
+        else:
+            return "unsupported", "❌ Too Heavy (Needs 16GB+ & GPU)", "#C23B22"
+
+    if ram_gb >= rec_ram:
+        if mid in ["tiny.en", "tiny"]:
+            return "optimal", "● Optimal (Lightning Fast)", "#2E7D32"
+        elif mid in ["base.en", "base"]:
+            return "optimal", "● Optimal for this PC", "#2E7D32"
+        elif mid in ["small.en", "small"]:
+            return "optimal", "● Optimal (High Accuracy)", "#2E7D32"
+        elif mid == "medium.en":
+            return "compatible", "● Supported (Studio)", "#2E7D32"
+    elif ram_gb >= min_ram:
+        if mid == "medium.en":
+            return "heavy", "⚠️ High RAM Usage (May lag)", "#B57A22"
+        else:
+            return "compatible", "● Compatible with this PC", "#0D65D9"
+    else:
+        return "unsupported", f"❌ Heavy (Requires {int(min_ram)}GB+ RAM)", "#C23B22"
+
 
 # Supported spoken languages
 AVAILABLE_LANGUAGES = [
@@ -92,13 +250,16 @@ class YapperDesktopHUD:
         self.current_model = saved.get("model", "tiny.en")
         self.current_language = saved.get("language", "en")
         self.is_settings_open = False
+        self.system_specs = get_system_specs()
+        self.downloading_models = {}
+        self.card_widgets = {}
 
         # Positioning: Start in top-right corner of primary monitor
         screen_w = self.root.winfo_screenwidth()
-        self.pill_w, self.pill_h = 290, 52
-        self.expanded_h = 240
-        pos_x = screen_w - self.pill_w - 40
-        pos_y = 60
+        self.pill_w, self.pill_h = 340, 52
+        self.expanded_h = 425
+        pos_x = screen_w - self.pill_w - 30
+        pos_y = 50
         self.root.geometry(f"{self.pill_w}x{self.pill_h}+{pos_x}+{pos_y}")
 
         # Dragging state
@@ -106,12 +267,16 @@ class YapperDesktopHUD:
         self._drag_start_y = 0
 
         # State management
+        self._gui_queue = queue.Queue()
         self.is_model_ready = False
         self.is_recording = False
         self._pulse_state = False
         self.audio_frames = []
         self.audio_stream: Optional[sd.InputStream] = None
         self.kbd_controller = keyboard.Controller()
+
+        # Start thread-safe GUI loop dispatcher
+        self._poll_gui_queue()
 
         # Build visual layout
         self._build_ui()
@@ -125,6 +290,24 @@ class YapperDesktopHUD:
 
         # Kick off background model verification & pre-warming
         threading.Thread(target=self._prewarm_model_pipeline, daemon=True).start()
+
+    def _run_on_ui(self, callback) -> None:
+        """Thread-safe dispatch to the Tkinter GUI main thread via queue."""
+        self._gui_queue.put(callback)
+
+    def _poll_gui_queue(self) -> None:
+        """Drain GUI callbacks on the main thread every 30ms."""
+        while not self._gui_queue.empty():
+            try:
+                fn = self._gui_queue.get_nowait()
+                fn()
+            except Exception as e:
+                logger.error("GUI queue execution error: %s", e)
+        if self.root and self.root.winfo_exists():
+            try:
+                self.root.after(30, self._poll_gui_queue)
+            except Exception:
+                pass
 
     def _load_settings(self) -> dict:
         try:
@@ -314,86 +497,112 @@ class YapperDesktopHUD:
         self.settings_drawer = tk.Frame(
             self.container,
             bg="#FAF6EE",
-            padx=12,
-            pady=10,
+            padx=10,
+            pady=8,
         )
 
-        # Drawer Header
+        # 1. Drawer Header Row
         header_frame = tk.Frame(self.settings_drawer, bg="#FAF6EE")
-        header_frame.pack(fill="x", pady=(0, 6))
+        header_frame.pack(fill="x", pady=(0, 4))
 
         hdr_lbl = tk.Label(
             header_frame,
-            text="SETTINGS & MODEL",
+            text="SETTINGS & MODELS",
             font=("Segoe UI", 8, "bold"),
             fg="#8C776E",
             bg="#FAF6EE",
         )
         hdr_lbl.pack(side="left")
 
-        self.drawer_badge = tk.Label(
+        collapse_btn = tk.Label(
             header_frame,
-            text=f"Active: {self.current_model}",
+            text="▲ Hide",
             font=("Segoe UI", 8),
             fg="#736056",
             bg="#FAF6EE",
+            cursor="hand2",
+            padx=4,
         )
-        self.drawer_badge.pack(side="right")
+        collapse_btn.pack(side="right")
+        collapse_btn.bind("<Button-1>", lambda e: self.close_settings())
 
-        # Whisper Model Selector Row
-        model_lbl = tk.Label(
-            self.settings_drawer,
-            text="Whisper Speech Model:",
-            font=("Segoe UI", 8),
-            fg="#594A42",
-            bg="#FAF6EE",
+        def _on_collapse_enter(e):
+            collapse_btn.config(fg="#C23B22")
+
+        def _on_collapse_leave(e):
+            collapse_btn.config(fg="#736056")
+
+        collapse_btn.bind("<Enter>", _on_collapse_enter)
+        collapse_btn.bind("<Leave>", _on_collapse_leave)
+
+        # 2. System Hardware Specs Banner
+        hw_frame = tk.Frame(self.settings_drawer, bg="#F4EFE6", bd=1, relief="solid", padx=8, pady=4)
+        hw_frame.pack(fill="x", pady=(0, 6))
+
+        ram_val = self.system_specs.get("ram_gb", 8.0)
+        os_val = self.system_specs.get("os_name", "PC")
+        hw_title = tk.Label(
+            hw_frame,
+            text=f"💻 Your {os_val}: {ram_val:.1f} GB RAM · Local AI Ready",
+            font=("Segoe UI", 8, "bold"),
+            fg="#3D3028",
+            bg="#F4EFE6",
             anchor="w",
         )
-        model_lbl.pack(fill="x", pady=(2, 1))
+        hw_title.pack(fill="x")
 
-        curr_model_label = AVAILABLE_MODELS[0][0]
-        for lbl, key in AVAILABLE_MODELS:
-            if key == self.current_model:
-                curr_model_label = lbl
-                break
-
-        self.model_var = tk.StringVar(value=curr_model_label)
-        self.model_menu = tk.OptionMenu(
-            self.settings_drawer,
-            self.model_var,
-            *[lbl for lbl, _ in AVAILABLE_MODELS],
-            command=self._on_model_menu_changed,
-        )
-        self.model_menu.config(
-            bg="#FAF6EE",
-            fg="#251C17",
-            activebackground="#EFE7DC",
-            activeforeground="#C23B22",
-            relief="solid",
-            bd=1,
-            highlightthickness=0,
-            font=("Segoe UI", 8),
+        hw_sub = tk.Label(
+            hw_frame,
+            text="Compatibility calculated for each model below:",
+            font=("Segoe UI", 7),
+            fg="#736056",
+            bg="#F4EFE6",
             anchor="w",
         )
-        self.model_menu["menu"].config(
-            bg="#FAF6EE",
-            fg="#251C17",
-            activebackground="#C23B22",
-            activeforeground="#FAF6EE",
-            font=("Segoe UI", 8),
-        )
-        self.model_menu.pack(fill="x", pady=(0, 6))
+        hw_sub.pack(fill="x")
 
-        # Language Selector Row
+        # 3. Scrollable Models List
+        list_outer = tk.Frame(self.settings_drawer, bg="#FAF6EE")
+        list_outer.pack(fill="both", expand=True, pady=(0, 6))
+
+        self.models_canvas = tk.Canvas(list_outer, bg="#FAF6EE", highlightthickness=0, height=205)
+        self.models_scrollbar = tk.Scrollbar(list_outer, orient="vertical", command=self.models_canvas.yview)
+        self.models_content = tk.Frame(self.models_canvas, bg="#FAF6EE")
+
+        self.models_content.bind(
+            "<Configure>",
+            lambda e: self.models_canvas.configure(scrollregion=self.models_canvas.bbox("all"))
+        )
+
+        self.models_canvas.create_window((0, 0), window=self.models_content, anchor="nw", width=302)
+        self.models_canvas.configure(yscrollcommand=self.models_scrollbar.set)
+
+        self.models_canvas.pack(side="left", fill="both", expand=True)
+        self.models_scrollbar.pack(side="right", fill="y")
+
+        # Mouse wheel scrolling binding
+        def _on_mousewheel(event):
+            delta = -1 * int(event.delta / 120) if event.delta else (1 if event.num == 5 else -1)
+            self.models_canvas.yview_scroll(delta, "units")
+
+        self.models_canvas.bind("<MouseWheel>", _on_mousewheel)
+        self.models_content.bind("<MouseWheel>", _on_mousewheel)
+
+        # Build cards for all models
+        self._build_model_cards(_on_mousewheel)
+
+        # 4. Spoken Language Selector Row
+        lang_frame = tk.Frame(self.settings_drawer, bg="#FAF6EE")
+        lang_frame.pack(fill="x", pady=(0, 6))
+
         lang_lbl = tk.Label(
-            self.settings_drawer,
+            lang_frame,
             text="Spoken Language:",
             font=("Segoe UI", 8),
             fg="#594A42",
             bg="#FAF6EE",
-            anchor="w",
         )
-        lang_lbl.pack(fill="x", pady=(2, 1))
+        lang_lbl.pack(side="left", padx=(0, 6))
 
         curr_lang_label = AVAILABLE_LANGUAGES[0][0]
         for lbl, key in AVAILABLE_LANGUAGES:
@@ -403,7 +612,7 @@ class YapperDesktopHUD:
 
         self.lang_var = tk.StringVar(value=curr_lang_label)
         self.lang_menu = tk.OptionMenu(
-            self.settings_drawer,
+            lang_frame,
             self.lang_var,
             *[lbl for lbl, _ in AVAILABLE_LANGUAGES],
             command=self._on_lang_menu_changed,
@@ -426,15 +635,15 @@ class YapperDesktopHUD:
             activeforeground="#FAF6EE",
             font=("Segoe UI", 8),
         )
-        self.lang_menu.pack(fill="x", pady=(0, 8))
+        self.lang_menu.pack(side="right", fill="x", expand=True)
 
-        # Footer Row with Privacy note & Done button
+        # 5. Footer Row with Privacy note & Done button
         footer_frame = tk.Frame(self.settings_drawer, bg="#FAF6EE")
         footer_frame.pack(fill="x")
 
         note_lbl = tk.Label(
             footer_frame,
-            text="100% On-Device · Zero Cloud",
+            text="🔒 100% On-Device · Zero Cloud",
             font=("Segoe UI", 7, "italic"),
             fg="#8C776E",
             bg="#FAF6EE",
@@ -463,6 +672,223 @@ class YapperDesktopHUD:
         done_btn.bind("<Enter>", _on_done_enter)
         done_btn.bind("<Leave>", _on_done_leave)
 
+    def _build_model_cards(self, mousewheel_handler) -> None:
+        """Construct individual card elements for each available Whisper model."""
+        ram_gb = self.system_specs.get("ram_gb", 8.0)
+
+        for m in AVAILABLE_MODELS:
+            mid = m["id"]
+            compat_status, compat_text, compat_color = get_model_compatibility(m, ram_gb)
+
+            card = tk.Frame(
+                self.models_content,
+                bg="#FAF6EE",
+                bd=1,
+                relief="solid",
+                padx=8,
+                pady=4,
+            )
+            card.pack(fill="x", pady=2)
+
+            top_row = tk.Frame(card, bg="#FAF6EE")
+            top_row.pack(fill="x")
+
+            name_lbl = tk.Label(
+                top_row,
+                text=f"{m['name']}  ·  {m['size_str']}",
+                font=("Segoe UI", 8, "bold"),
+                fg="#251C17",
+                bg="#FAF6EE",
+                anchor="w",
+            )
+            name_lbl.pack(side="left")
+
+            action_btn = tk.Label(
+                top_row,
+                text="State",
+                font=("Segoe UI", 7, "bold"),
+                padx=6,
+                pady=1,
+            )
+            action_btn.pack(side="right")
+
+            bottom_row = tk.Frame(card, bg="#FAF6EE")
+            bottom_row.pack(fill="x", pady=(2, 0))
+
+            compat_lbl = tk.Label(
+                bottom_row,
+                text=compat_text,
+                font=("Segoe UI", 7, "bold"),
+                fg=compat_color,
+                bg="#FAF6EE",
+                anchor="w",
+            )
+            compat_lbl.pack(side="left")
+
+            desc_lbl = tk.Label(
+                bottom_row,
+                text=m["desc"],
+                font=("Segoe UI", 7),
+                fg="#736056",
+                bg="#FAF6EE",
+                anchor="e",
+            )
+            desc_lbl.pack(side="right")
+
+            self.card_widgets[mid] = {
+                "card": card,
+                "top": top_row,
+                "bottom": bottom_row,
+                "name_lbl": name_lbl,
+                "action_btn": action_btn,
+                "compat_lbl": compat_lbl,
+                "desc_lbl": desc_lbl,
+                "model": m,
+            }
+
+            # Bind mousewheel to all card children for smooth scrolling
+            for w in [card, top_row, bottom_row, name_lbl, action_btn, compat_lbl, desc_lbl]:
+                w.bind("<MouseWheel>", mousewheel_handler)
+
+        self._refresh_all_model_cards()
+
+    def _refresh_all_model_cards(self) -> None:
+        """Update visual state and action buttons for every model card in the drawer."""
+        for m in AVAILABLE_MODELS:
+            self._refresh_model_card(m["id"])
+
+    def _refresh_model_card(self, model_id: str) -> None:
+        """Update single model card based on local cache status and current selection."""
+        widgets = self.card_widgets.get(model_id)
+        if not widgets:
+            return
+
+        card = widgets["card"]
+        top = widgets["top"]
+        bottom = widgets["bottom"]
+        name_lbl = widgets["name_lbl"]
+        action_btn = widgets["action_btn"]
+        compat_lbl = widgets["compat_lbl"]
+        desc_lbl = widgets["desc_lbl"]
+
+        is_active = (model_id == self.current_model)
+        is_downloading = (model_id in self.downloading_models)
+        is_cached = check_is_cached(model_id)
+
+        card_bg = "#EDE3D5" if is_active else "#FAF6EE"
+
+        card.config(bg=card_bg)
+        top.config(bg=card_bg)
+        bottom.config(bg=card_bg)
+        name_lbl.config(bg=card_bg)
+        compat_lbl.config(bg=card_bg)
+        desc_lbl.config(bg=card_bg)
+
+        # Clear existing button bindings
+        action_btn.unbind("<Button-1>")
+        action_btn.unbind("<Enter>")
+        action_btn.unbind("<Leave>")
+
+        if is_downloading:
+            prog_text = self.downloading_models[model_id]
+            action_btn.config(
+                text=f"⏳ {prog_text}",
+                bg="#FAF6EE",
+                fg="#D9983B",
+                relief="solid",
+                bd=1,
+                cursor="wait",
+            )
+        elif is_active:
+            action_btn.config(
+                text="✓ Active",
+                bg="#251C17",
+                fg="#FAF6EE",
+                relief="flat",
+                bd=0,
+                cursor="arrow",
+            )
+        elif is_cached:
+            action_btn.config(
+                text="Select",
+                bg="#FAF6EE",
+                fg="#251C17",
+                relief="solid",
+                bd=1,
+                cursor="hand2",
+            )
+            action_btn.bind("<Button-1>", lambda e, mid=model_id: self._select_model(mid))
+            action_btn.bind("<Enter>", lambda e, b=action_btn: b.config(bg="#251C17", fg="#FAF6EE"))
+            action_btn.bind("<Leave>", lambda e, b=action_btn: b.config(bg="#FAF6EE", fg="#251C17"))
+        else:
+            action_btn.config(
+                text="⬇ Download",
+                bg="#EDE3D5",
+                fg="#251C17",
+                relief="solid",
+                bd=1,
+                cursor="hand2",
+            )
+            action_btn.bind("<Button-1>", lambda e, mid=model_id: self._start_model_download(mid))
+            action_btn.bind("<Enter>", lambda e, b=action_btn: b.config(bg="#D7C3AF", fg="#251C17"))
+            action_btn.bind("<Leave>", lambda e, b=action_btn: b.config(bg="#EDE3D5", fg="#251C17"))
+
+    def _start_model_download(self, model_id: str) -> None:
+        """Trigger asynchronous model weight download via Cloudflare R2 CDN edge."""
+        if model_id in self.downloading_models:
+            return
+
+        self.downloading_models[model_id] = "Connecting..."
+        self._refresh_model_card(model_id)
+        self.status_label.config(text=f"Downloading {model_id}...")
+
+        def _worker():
+            try:
+                sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "services", "yapper-engine")))
+                from src.engine.model_loader import ensure_model_ready
+
+                def _prog(pct, msg):
+                    pct_str = f"{int(pct * 100)}%"
+                    self.downloading_models[model_id] = pct_str
+                    self._run_on_ui(lambda: self._refresh_model_card(model_id))
+                    self._run_on_ui(lambda: self.status_label.config(text=f"Fetching {model_id} ({pct_str})..."))
+
+                ensure_model_ready(model_id, progress_callback=_prog)
+                self.downloading_models.pop(model_id, None)
+
+                def _on_done():
+                    self._refresh_all_model_cards()
+                    self.status_label.config(text=f"✓ {model_id} downloaded!")
+                    logger.info("Successfully downloaded and cached model: %s", model_id)
+                    self.root.after(2500, self._reset_ui_idle)
+
+                self._run_on_ui(_on_done)
+            except Exception as exc:
+                logger.error("Download failed for '%s': %s", model_id, exc)
+                self.downloading_models.pop(model_id, None)
+                def _on_err():
+                    self._refresh_model_card(model_id)
+                    self.status_label.config(text=f"Error downloading {model_id}")
+                    self.root.after(3000, self._reset_ui_idle)
+                self._run_on_ui(_on_err)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _select_model(self, model_id: str) -> None:
+        """Activate a downloaded model as the primary transcription engine."""
+        if model_id == self.current_model:
+            return
+
+        if not check_is_cached(model_id):
+            self.status_label.config(text=f"Please download {model_id} first")
+            self._start_model_download(model_id)
+            return
+
+        self.current_model = model_id
+        self._save_settings()
+        self._refresh_all_model_cards()
+        self._switch_model(model_id)
+
     def open_settings(self) -> None:
         """Expand the floating HUD downwards to display the settings drawer."""
         if self.is_settings_open:
@@ -473,6 +899,7 @@ class YapperDesktopHUD:
         self.settings_drawer.pack(fill="both", expand=True, side="top")
         cur_x, cur_y = self.root.winfo_x(), self.root.winfo_y()
         self.root.geometry(f"{self.pill_w}x{self.expanded_h}+{cur_x}+{cur_y}")
+        self._refresh_all_model_cards()
 
     def close_settings(self) -> None:
         """Collapse the settings drawer back into the sleek floating pill."""
@@ -491,17 +918,6 @@ class YapperDesktopHUD:
             self.close_settings()
         else:
             self.open_settings()
-
-    def _on_model_menu_changed(self, selected_label: str) -> None:
-        """Triggered when user selects a different Whisper model in settings."""
-        target_model = None
-        for lbl, key in AVAILABLE_MODELS:
-            if lbl == selected_label:
-                target_model = key
-                break
-        if not target_model or target_model == self.current_model:
-            return
-        self._switch_model(target_model)
 
     def _on_lang_menu_changed(self, selected_label: str) -> None:
         """Triggered when user selects a different spoken language."""
@@ -523,7 +939,7 @@ class YapperDesktopHUD:
         self.is_model_ready = False
         self.orb_btn.itemconfig(self.orb_circle, fill="#D9983B", outline="#B57A22")
         self.status_label.config(text=f"Loading {target_model}...")
-        self.drawer_badge.config(text=f"Loading {target_model}...", fg="#D9983B")
+        self._refresh_all_model_cards()
 
         def _worker():
             try:
@@ -532,8 +948,7 @@ class YapperDesktopHUD:
                 from src.engine.transcription import get_transcriber
 
                 def _prog(pct, msg):
-                    self.root.after(0, lambda: self.status_label.config(text=f"{msg}"))
-                    self.root.after(0, lambda: self.drawer_badge.config(text=f"{msg}"))
+                    self._run_on_ui(lambda: self.status_label.config(text=f"{msg}"))
 
                 ensure_model_ready(target_model, progress_callback=_prog)
                 transcriber = get_transcriber(model_size=target_model)
@@ -542,18 +957,18 @@ class YapperDesktopHUD:
 
                 def _on_ready():
                     self._set_model_ready()
-                    self.drawer_badge.config(text=f"Active: {target_model}", fg="#2E7D32")
+                    self._refresh_all_model_cards()
                     logger.info("Switched to model '%s' successfully.", target_model)
 
-                self.root.after(0, _on_ready)
+                self._run_on_ui(_on_ready)
             except Exception as exc:
                 logger.error("Failed to load model '%s': %s", target_model, exc)
                 def _on_fail():
                     self.status_label.config(text=f"Error loading {target_model}")
-                    self.drawer_badge.config(text=f"Error ({target_model})", fg="#C23B22")
                     self.current_model = old_model
                     self._set_model_ready()
-                self.root.after(0, _on_fail)
+                    self._refresh_all_model_cards()
+                self._run_on_ui(_on_fail)
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -610,30 +1025,30 @@ class YapperDesktopHUD:
                 res = requests.get(f"{ENGINE_HTTP_URL}/health", timeout=1.5)
                 if res.status_code == 200:
                     logger.info("Connected to Yapper Engine HTTP backend.")
-                    self.root.after(0, self._set_model_ready)
+                    self._run_on_ui(self._set_model_ready)
                     return
             except Exception:
                 pass
 
             # 2. Check and pre-warm local in-process model
-            self.root.after(0, lambda: self.status_label.config(text=f"Verifying {self.current_model}..."))
+            self._run_on_ui(lambda: self.status_label.config(text=f"Verifying {self.current_model}..."))
             sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "services", "yapper-engine")))
             from src.engine.transcription import get_transcriber
             from src.engine.model_loader import ensure_model_ready
 
             def _prog(pct, msg):
-                self.root.after(0, lambda: self.status_label.config(text=f"{msg}"))
+                self._run_on_ui(lambda: self.status_label.config(text=f"{msg}"))
 
             ensure_model_ready(self.current_model, progress_callback=_prog)
             transcriber = get_transcriber(model_size=self.current_model)
             if hasattr(transcriber, "_get_model"):
-                self.root.after(0, lambda: self.status_label.config(text=f"Loading {self.current_model}..."))
+                self._run_on_ui(lambda: self.status_label.config(text=f"Loading {self.current_model}..."))
                 transcriber._get_model()
 
-            self.root.after(0, self._set_model_ready)
+            self._run_on_ui(self._set_model_ready)
         except Exception as exc:
             logger.warning("Pre-warm completed with notice: %s", exc)
-            self.root.after(0, self._set_model_ready)
+            self._run_on_ui(self._set_model_ready)
 
     def _set_model_ready(self) -> None:
         """Transition widget to active, ready state."""
@@ -642,8 +1057,8 @@ class YapperDesktopHUD:
         self.orb_btn.itemconfigure(self.orb_stop_icon, state="hidden")
         self.title_label.config(text="Yapper", fg="#251C17")
         self.status_label.config(text=f"{DEFAULT_HOTKEY_LABEL} to record")
-        if hasattr(self, "drawer_badge"):
-            self.drawer_badge.config(text=f"Active: {self.current_model}", fg="#2E7D32")
+        if hasattr(self, "card_widgets") and self.card_widgets:
+            self._refresh_all_model_cards()
 
     def _on_hotkey_triggered(self) -> None:
         """Triggered when hotkey is pressed anywhere on Windows."""
@@ -770,7 +1185,7 @@ class YapperDesktopHUD:
             # Suppress tiny audio (< 0.25s)
             if len(pcm_bytes) < 8000:
                 logger.info("Audio segment too short (<0.25s). Resetting.")
-                self.root.after(0, self._reset_ui_idle)
+                self._run_on_ui(self._reset_ui_idle)
                 return
 
             wav_buf = io.BytesIO()
@@ -782,10 +1197,10 @@ class YapperDesktopHUD:
             wav_bytes = wav_buf.getvalue()
 
             final_text = self._transcribe_audio(wav_bytes, pcm_bytes)
-            self.root.after(0, self._on_transcription_finished, final_text)
+            self._run_on_ui(lambda: self._on_transcription_finished(final_text))
         except Exception as exc:
             logger.error("Pipeline processing error: %s", exc, exc_info=True)
-            self.root.after(0, self._reset_ui_idle)
+            self._run_on_ui(self._reset_ui_idle)
 
     def _transcribe_audio(self, wav_bytes: bytes, pcm_bytes: bytes) -> str:
         """Transcribe via running yapper-engine HTTP API or direct faster-whisper."""

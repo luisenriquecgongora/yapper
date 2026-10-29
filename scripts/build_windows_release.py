@@ -64,6 +64,8 @@ def build_release(version: str = "1.0.0") -> Path:
         "numpy",
         "--hidden-import",
         "tkinter",
+        "--hidden-import",
+        "psutil",
         str(CLIENT_FILE),
     ]
 
