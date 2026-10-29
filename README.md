@@ -285,6 +285,23 @@ yarn build
 
 ---
 
+## 🚀 Releases & Cloudflare R2 Retention Policy
+
+Yapper Desktop binaries and bundled model assets are published to Cloudflare R2 object storage:
+
+* **CDN Base URL**: `https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev`
+* **Canonical Latest Windows**: `https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip`
+* **Canonical Latest macOS**: `https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-macos.zip`
+* **Update Manifest**: `https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/version.json`
+
+### 🛡️ Max-5 Version Retention Rule
+To keep Cloudflare R2 storage lean and cost-efficient, an automated retention policy is enforced across release repositories (`yapper/` and `robot-host/stable/`):
+- Only the **5 most recent semantic versions** (e.g., `v1.0.0`, `v0.7.0`, `v0.6.3`...) are kept in immutable release storage.
+- Older versions are pruned automatically during `python scripts/publish_release_to_r2.py` or via standalone execution with `python scripts/prune_r2_releases.py --all`.
+- Canonical folders (`latest/`, `latest.json`, and pre-cached `models/`) are permanently protected from deletion.
+
+---
+
 ## 📄 License
 
 MIT © Luis Enrique.
