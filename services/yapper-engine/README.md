@@ -253,4 +253,4 @@ python benchmarks/pareto_latency.py
 
 ## 📄 License
 
-MIT © PlaatoOS Team
+MIT © Luis Enrique

@@ -256,8 +256,8 @@ class YapperDesktopHUD:
 
         # Positioning: Start in top-right corner of primary monitor
         screen_w = self.root.winfo_screenwidth()
-        self.pill_w, self.pill_h = 340, 52
-        self.expanded_h = 425
+        self.pill_w, self.pill_h = 350, 52
+        self.expanded_h = 430
         pos_x = screen_w - self.pill_w - 30
         pos_y = 50
         self.root.geometry(f"{self.pill_w}x{self.pill_h}+{pos_x}+{pos_y}")
@@ -574,7 +574,7 @@ class YapperDesktopHUD:
             lambda e: self.models_canvas.configure(scrollregion=self.models_canvas.bbox("all"))
         )
 
-        self.models_canvas.create_window((0, 0), window=self.models_content, anchor="nw", width=302)
+        self.models_canvas.create_window((0, 0), window=self.models_content, anchor="nw", width=312)
         self.models_canvas.configure(yscrollcommand=self.models_scrollbar.set)
 
         self.models_canvas.pack(side="left", fill="both", expand=True)
@@ -758,7 +758,7 @@ class YapperDesktopHUD:
             self._refresh_model_card(m["id"])
 
     def _refresh_model_card(self, model_id: str) -> None:
-        """Update single model card based on local cache status and current selection."""
+        """Update single model card styling and action button based on download status."""
         widgets = self.card_widgets.get(model_id)
         if not widgets:
             return
@@ -770,27 +770,28 @@ class YapperDesktopHUD:
         action_btn = widgets["action_btn"]
         compat_lbl = widgets["compat_lbl"]
         desc_lbl = widgets["desc_lbl"]
+        m = widgets["model"]
 
         is_active = (model_id == self.current_model)
         is_downloading = (model_id in self.downloading_models)
         is_cached = check_is_cached(model_id)
 
-        card_bg = "#EDE3D5" if is_active else "#FAF6EE"
-
-        card.config(bg=card_bg)
-        top.config(bg=card_bg)
-        bottom.config(bg=card_bg)
-        name_lbl.config(bg=card_bg)
-        compat_lbl.config(bg=card_bg)
-        desc_lbl.config(bg=card_bg)
-
-        # Clear existing button bindings
+        # Clear existing button and card click bindings
         action_btn.unbind("<Button-1>")
         action_btn.unbind("<Enter>")
         action_btn.unbind("<Leave>")
+        card.unbind("<Button-1>")
 
         if is_downloading:
             prog_text = self.downloading_models[model_id]
+            card_bg = "#FFFBF0"
+            name_lbl.config(
+                text=f"⏳ {m['name']}  ·  {m['size_str']}",
+                fg="#251C17",
+                bg=card_bg,
+                font=("Segoe UI", 8, "bold"),
+            )
+            desc_lbl.config(text="Downloading weights...", fg="#D9983B", bg=card_bg, font=("Segoe UI", 7, "italic"))
             action_btn.config(
                 text=f"⏳ {prog_text}",
                 bg="#FAF6EE",
@@ -800,6 +801,14 @@ class YapperDesktopHUD:
                 cursor="wait",
             )
         elif is_active:
+            card_bg = "#EDE3D5"
+            name_lbl.config(
+                text=f"⚡ {m['name']}  ·  {m['size_str']}",
+                fg="#251C17",
+                bg=card_bg,
+                font=("Segoe UI", 8, "bold"),
+            )
+            desc_lbl.config(text="✓ In Use · Active Engine", fg="#2E7D32", bg=card_bg, font=("Segoe UI", 7, "bold"))
             action_btn.config(
                 text="✓ Active",
                 bg="#251C17",
@@ -809,8 +818,16 @@ class YapperDesktopHUD:
                 cursor="arrow",
             )
         elif is_cached:
+            card_bg = "#FAF6EE"
+            name_lbl.config(
+                text=f"💾 {m['name']}  ·  {m['size_str']}",
+                fg="#251C17",
+                bg=card_bg,
+                font=("Segoe UI", 8, "bold"),
+            )
+            desc_lbl.config(text="Local · Ready to Use", fg="#2E7D32", bg=card_bg, font=("Segoe UI", 7))
             action_btn.config(
-                text="Select",
+                text="Select Model",
                 bg="#FAF6EE",
                 fg="#251C17",
                 relief="solid",
@@ -820,18 +837,34 @@ class YapperDesktopHUD:
             action_btn.bind("<Button-1>", lambda e, mid=model_id: self._select_model(mid))
             action_btn.bind("<Enter>", lambda e, b=action_btn: b.config(bg="#251C17", fg="#FAF6EE"))
             action_btn.bind("<Leave>", lambda e, b=action_btn: b.config(bg="#FAF6EE", fg="#251C17"))
+            card.bind("<Button-1>", lambda e, mid=model_id: self._select_model(mid))
         else:
+            # NOT DOWNLOADED YET: Distinct muted/soft appearance with explicit Download button
+            card_bg = "#F3EDE2"
+            name_lbl.config(
+                text=f"☁️ {m['name']}  ·  {m['size_str']}",
+                fg="#6E5B51",
+                bg=card_bg,
+                font=("Segoe UI", 8),
+            )
+            desc_lbl.config(text="☁️ Not Installed · In Cloud", fg="#8C776E", bg=card_bg, font=("Segoe UI", 7, "italic"))
             action_btn.config(
-                text="⬇ Download",
-                bg="#EDE3D5",
+                text="⬇ Download Model",
+                bg="#E5D9CB",
                 fg="#251C17",
                 relief="solid",
                 bd=1,
                 cursor="hand2",
             )
             action_btn.bind("<Button-1>", lambda e, mid=model_id: self._start_model_download(mid))
-            action_btn.bind("<Enter>", lambda e, b=action_btn: b.config(bg="#D7C3AF", fg="#251C17"))
-            action_btn.bind("<Leave>", lambda e, b=action_btn: b.config(bg="#EDE3D5", fg="#251C17"))
+            action_btn.bind("<Enter>", lambda e, b=action_btn: b.config(bg="#D4C5B3", fg="#1A130E"))
+            action_btn.bind("<Leave>", lambda e, b=action_btn: b.config(bg="#E5D9CB", fg="#251C17"))
+            card.bind("<Button-1>", lambda e, mid=model_id: self._start_model_download(mid))
+
+        card.config(bg=card_bg)
+        top.config(bg=card_bg)
+        bottom.config(bg=card_bg)
+        compat_lbl.config(bg=card_bg)
 
     def _start_model_download(self, model_id: str) -> None:
         """Trigger asynchronous model weight download via Cloudflare R2 CDN edge."""

@@ -99,4 +99,4 @@ await client.start();
 
 ## 📄 License
 
-MIT © PlaatoOS Team
+MIT © Luis Enrique

@@ -109,4 +109,4 @@ export function DictationApp() {
 
 ## 📄 License
 
-MIT © PlaatoOS Team
+MIT © Luis Enrique

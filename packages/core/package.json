@@ -33,7 +33,7 @@
     "stt",
     "streaming"
   ],
-  "author": "PlaatoOS Team",
+  "author": "Luis Enrique <luisenriquecgongora@gmail.com>",
   "license": "MIT",
   "dependencies": {
     "@huggingface/transformers": "^3.3.0 || ^4.0.0"

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "yapper-engine"
 version = "1.0.0"
 description = "High-throughput async Python STT engine with duplex WebSocket streaming, Silero VAD gating, and Wispr Flow post-processing."
-authors = [{ name = "PlaatoOS Team" }]
+authors = [{ name = "Luis Enrique", email = "luisenriquecgongora@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 dependencies = [

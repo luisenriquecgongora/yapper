@@ -31,7 +31,7 @@
     "dictation",
     "audio"
   ],
-  "author": "PlaatoOS Team",
+  "author": "Luis Enrique <luisenriquecgongora@gmail.com>",
   "license": "MIT",
   "peerDependencies": {
     "react": ">=18.0.0",

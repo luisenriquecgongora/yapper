@@ -287,4 +287,4 @@ yarn build
 
 ## 📄 License
 
-MIT © [PlaatoOS](https://plaatoos.com) / Luis Enrique.
+MIT © Luis Enrique.
