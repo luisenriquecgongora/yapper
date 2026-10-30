@@ -1,7 +1,7 @@
 # Yapper
 
-> *"Speak softly. Your voice writes itself into thought."*  
-> **An intimate, zero-latency speech-to-text SDK running 100% on-device Whisper via WebGPU with self-healing 0ms Native Web Speech fallback.**  
+> *"Speak softly. Your voice writes itself into thought."*
+> **An intimate, zero-latency speech-to-text SDK running 100% on-device Whisper via WebGPU with self-healing 0ms Native Web Speech fallback.**
 > *Live interactive playground:* [**yapper.plaatoos.com**](https://yapper.plaatoos.com)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](https://opensource.org/licenses/MIT)
@@ -26,6 +26,98 @@
 - 🛡️ **Zero Cloud Transmission**: By default, audio samples never leave the user's device. Audio buffers reside in transient RAM, run through Web Audio nodes, and are immediately freed after decoding.
 - 🧪 **Automated Vitest Test Suite**: 100% verified test coverage across audio downsampling, WAV header generation, Energy VAD, and streaming agreement chunking.
 - 🌍 **Multilingual**: Supports 55+ spoken tongues including English, Spanish, Polish, French, German, Korean, Italian, Ukrainian, and more.
+
+---
+
+## 🏗️ Architecture & Component Interconnections
+
+Yapper connects an audio-reactive **Web & React Client SDK**, an in-browser **Universal WebGPU Core Engine**, a cross-platform **Desktop Voice HUD**, an authoritative **Python WebSocket Streaming Microservice**, and an edge-cached **Cloud Distribution Layer**:
+
+```mermaid
+flowchart TD
+    subgraph Desktop["Desktop Voice HUD (Windows & macOS Native Client)"]
+        HUD["Floating HUD Pill Widget\n(Always-on-Top · Tkinter GUI)"]
+        Hotkey["Global Hotkey Daemon\n(Ctrl+Shift+Space / Cmd+Shift+Space)"]
+        LocalFW["Local faster-whisper Engine\n(In-Process CTranslate2 int8)"]
+        Typer["OS Keystroke Injector\n(pynput / SendInput to Active Cursor)"]
+        TargetApps["Any Application\n(VS Code, Notion, Slack, Chrome, Word)"]
+
+        Hotkey -->|Triggers recording & cancel| HUD
+        HUD -->|Pipes 16kHz PCM audio| LocalFW
+        LocalFW -->|Cleaned transcript| Typer
+        Typer -->|Auto-types text| TargetApps
+    end
+
+    subgraph WebClient["Web Frontend & React SDK (apps/showcase & @yapper/react)"]
+        Orb["TalkOrb Living Wax Seal\n(Audio-reactive pulsing)"]
+        Paper["Cotton Paper Sheet\n(Dual-Ink: Vermilion → Walnut)"]
+        UseTalk["useTalk Hook & TalkClient\n(State Orchestrator)"]
+        Telemetry["Telegraph Ribbon\n(Live Speed Telemetry & Logs)"]
+
+        Orb <-->|Click trigger & volume| UseTalk
+        UseTalk -->|Interim & Final text| Paper
+        UseTalk -->|Latency & throughput| Telemetry
+    end
+
+    subgraph CoreEngine["Universal In-Browser Core Engine (@yapper/core)"]
+        Mic["Microphone Ingestion\n(AudioWorklet 16kHz Mono Float32)"]
+        VAD["Energy VAD & Noise Gate\n(Silence suppression loop)"]
+        WebGPU["WebGPU Whisper Worker\n(ONNX Runtime Web 4-bit q4 WGSL)"]
+        NativeSTT["Native Web Speech Engine\n(Instant 0ms hardware stream)"]
+
+        Mic --> VAD
+        VAD -->|Active speech frames| WebGPU
+        VAD -.->|Fallback / 0ms instant mode| NativeSTT
+        WebGPU -->|Tokens| UseTalk
+        NativeSTT -->|Syllables| UseTalk
+    end
+
+    subgraph Backend["High-Throughput Streaming Engine (services/yapper-engine)"]
+        WS["FastAPI Duplex WebSocket Server\n(:8000 /ws/audio)"]
+        Silero["Silero VAD v5\n(ONNX Neural Gating)"]
+        BatchEngine["faster-whisper Engine\n(CUDA / Metal / CPU CTranslate2)"]
+        Formatter["Conversational Text Cleaner\n(Filler stripping & punctuation)"]
+
+        WS --> Silero
+        Silero --> BatchEngine
+        BatchEngine --> Formatter
+        Formatter -->|Cleaned JSON stream| WS
+    end
+
+    subgraph CloudInfra["Cloud Gateway & Distribution (Zero Retention & Storage)"]
+        ZDR["Zero Data Retention Proxy\n(@yapper/server Node Express)"]
+        R2["Cloudflare R2 Bucket\n(Max 5 latest Desktop Releases & Models)"]
+        HuggingFace["HuggingFace Hub / ONNX Mirror\n(Neural Model Weights)"]
+
+        R2 -.->|Download Portable .zip| Desktop
+        HuggingFace -.->|4-bit weights on first load| WebGPU
+        HuggingFace -.->|int8 weights on first run| LocalFW
+    end
+
+    UseTalk <== "Duplex WebSocket / 16kHz PCM Audio Stream" ==> WS
+    UseTalk -. "Optional ZDR Transcribe API" .-> ZDR
+    HUD -. "Optional Engine Stream Mode" .-> WS
+```
+
+### Component Interconnection Breakdown
+
+1. **Desktop Voice HUD ↔ Target Applications**:
+   - The global keyboard hook listens for `<ctrl>+<shift>+<space>` (Windows) or `<cmd>+<shift>+<space>` (macOS).
+   - Upon trigger, the HUD records audio via `sounddevice`, passes frames to in-process `faster-whisper`, formats the text, and injects characters at the active OS cursor via `pynput` / `SendInput` into VS Code, Notion, Slack, Word, or Chrome.
+
+2. **Web Frontend (`@yapper/react`) ↔ Core Engine (`@yapper/core`)**:
+   - The `<TalkOrb />` visualizer pulses reactively to live microphone amplitude.
+   - `AudioWorklet` captures 16 kHz Mono Float32 PCM audio directly in the browser thread.
+   - `EnergyVAD` computes Root Mean Square (RMS) energy; during pauses, GPU tensor dispatch is halted to prevent idle power draw and token loops.
+   - `WebGPU Whisper Worker` runs 4-bit quantized Whisper weights in WGSL shaders via ONNX Runtime Web, streaming interim hypothesis tokens into the Cotton Paper Sheet in vermilion red ink before committing permanent walnut ink.
+
+3. **Client SDK ↔ Python Streaming Engine (`services/yapper-engine`)**:
+   - For server-side high-throughput workloads, `TalkClient` connects via duplex WebSocket to `ws://localhost:8000/ws/audio?language=en&mode=flow`.
+   - The engine processes incoming audio chunks through `Silero VAD`, decodes using `faster-whisper` (CTranslate2), applies `ConversationalTextFormatter` to clean filler words and format punctuation, and sends JSON interim/final frames back over the socket.
+
+4. **Cloud Distribution & Zero Data Retention (`Cloudflare R2` & `@yapper/server`)**:
+   - Pre-compiled standalone desktop releases (`Yapper-windows-x64.zip` and `Yapper-macos.zip`) are distributed via Cloudflare R2 with an automated retention limit of the latest 5 builds.
+   - The lightweight `@yapper/server` gateway acts as an end-to-end encrypted proxy with zero disk writes, enforcing a Zero Data Retention guarantee.
 
 ---
 
