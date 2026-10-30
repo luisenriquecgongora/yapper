@@ -17,6 +17,32 @@
 
 ---
 
+## 🧠 The 10-Second Mental Model
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 1. YOU SPEAK      ──> 🎤 16kHz Mono Float32 AudioWorklet / sounddevice       │
+│ 2. VAD GATES      ──> 🛑 Energy VAD suspends compute on quiet pauses (0% GPU)│
+│ 3. DECODER INKS   ──> ⚡ WebGPU Whisper (in browser) or faster-whisper       │
+│                       (Desktop HUD) decodes words token-by-token             │
+│ 4. CLEANUP        ──> ✨ Post-processor strips "um/uh", fixes capitalization │
+│ 5. EMISSION       ──> ✍️ Streams in pulsing Vermilion ink on web paper,      │
+│                       or auto-types into cursor in VS Code, Notion, Slack    │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 🎯 Which Component Do I Need?
+
+| If You Want To... | Target Component | Technology | Offline? | Guide |
+| :--- | :--- | :--- | :---: | :--- |
+| **Dictate into VS Code, Notion, Slack anywhere on OS** | [`clients/desktop_hud.py`](clients/README.md) | Python / OS Hook | **100% Offline** | [Desktop Guide](clients/README.md) |
+| **Add voice dictation to a React / Next.js app** | [`packages/react`](packages/react/README.md) | TypeScript / React 18+ | **100% Offline** | [React Guide](packages/react/README.md) |
+| **Add voice dictation to Vanilla JS, Vue, or Svelte** | [`packages/core`](packages/core/README.md) | TypeScript (0 deps) | **100% Offline** | [Core Guide](packages/core/README.md) |
+| **Run a high-throughput WebSocket streaming backend** | [`services/yapper-engine`](services/yapper-engine/README.md) | Python 3.12 / FastAPI | Local or Cloud | [Engine Guide](services/yapper-engine/README.md) |
+| **Try the interactive WebGPU playground right now** | [`apps/showcase`](https://yapper.plaatoos.com) | React / WebGPU | Web Browser | [Live Demo](https://yapper.plaatoos.com) |
+
+---
+
 ## ✨ Key Highlights
 
 - ✦ **On-Device WebGPU Whisper (Fast 4-bit)**: Compiles OpenAI's Whisper model directly into your browser's GPU shaders via ONNX Runtime Web and `@huggingface/transformers`. Model weights are compressed with 4-bit integer quantization (`q4`), slashing download size to **28 MB** and executing inference in **~60ms to 95ms**.
@@ -118,6 +144,35 @@ flowchart TD
 4. **Cloud Distribution & Zero Data Retention (`Cloudflare R2` & `@yapper/server`)**:
    - Pre-compiled standalone desktop releases (`Yapper-windows-x64.zip` and `Yapper-macos.zip`) are distributed via Cloudflare R2 with an automated retention limit of the latest 5 builds.
    - The lightweight `@yapper/server` gateway acts as an end-to-end encrypted proxy with zero disk writes, enforcing a Zero Data Retention guarantee.
+
+### 🔄 Life of a Spoken Word (End-to-End Sequence)
+
+The diagram below traces the exact journey of a spoken syllable through VAD gating, autoregressive decoding, and text injection:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 🗣️ User Speaks
+    participant Mic as 🎤 Audio Stream (16kHz PCM)
+    participant VAD as 🛑 Voice Activity Gate
+    participant Engine as 🧠 Whisper Engine (WebGPU / CTranslate2)
+    participant Post as ✨ Text Post-Processor
+    participant Target as ✍️ Target Output (Cursor / Paper)
+
+    User->>Mic: "Let's update deployment, um, to Monday."
+    Mic->>VAD: Streams continuous Float32 PCM chunks
+    alt Quiet Room / Silence
+        VAD-->>Engine: Suppress compute (0% GPU / zero phantom tokens)
+    else Active Speech Detected
+        VAD->>Engine: Forward active speech frames
+        loop Autoregressive Decoding Loop (One Token / Pass)
+            Engine->>Target: Live streaming words in Vermilion Red Ink
+        end
+        Engine->>Post: Raw acoustic transcript text
+        Post->>Post: Strip "um", fix sentence case, commit punctuation
+        Post->>Target: Inscribe permanent text into cursor ("Let's update deployment to Monday.")
+    end
+```
 
 ---
 
