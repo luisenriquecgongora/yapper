@@ -5,6 +5,7 @@
 [![Always on Top](https://img.shields.io/badge/Window-Always--on--Top-red.svg)](#-how-it-works)
 [![Global Hotkey](https://img.shields.io/badge/Hotkey-Ctrl%2BShift%2BSpace-purple.svg)](#-global-hotkey-workflow)
 [![Active Cursor Injection](https://img.shields.io/badge/Input-Clipboard_Paste_Ctrl%2BV-emerald.svg)](#-active-cursor-injection)
+[![Troubleshooting Guide](https://img.shields.io/badge/Diagnostic-TROUBLESHOOTING.md-teal.svg)](../TROUBLESHOOTING.md)
 
 ---
 
