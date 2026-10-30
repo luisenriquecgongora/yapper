@@ -1,4 +1,4 @@
-"""Yapper Desktop Floating HUD Widget (Wispr Flow style).
+"""Yapper Desktop Floating HUD Widget.
 
 An always-on-top, draggable desktop voice pill that floats over any application
 (VS Code, Notion, Slack, Word, Browser). Press the global hotkey (Ctrl+Shift+Space),
@@ -1516,7 +1516,7 @@ class YapperDesktopHUD:
 if __name__ == "__main__":
     os_name = "macOS" if IS_MAC else "Windows"
     print("==================================================================")
-    print(f" 🎙️ YAPPER DESKTOP VOICE HUD ({os_name} · Wispr Flow style)")
+    print(f" 🎙️ YAPPER DESKTOP VOICE HUD ({os_name} · Universal Voice Dictation)")
     print("==================================================================")
     print(" • Widget will float in top-right of your screen.")
     print(" • Click anywhere in VS Code, Notion, Slack, Word, or Chrome.")

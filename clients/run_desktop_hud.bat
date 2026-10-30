@@ -2,7 +2,7 @@
 chcp 65001 >nul
 title Yapper Voice HUD
 echo ==================================================================
-echo  🎙️ Starting Yapper Desktop Floating HUD (Wispr Flow style)
+echo  🎙️ Starting Yapper Desktop Floating Voice HUD
 echo ==================================================================
 cd /d "%~dp0\.."
 

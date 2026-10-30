@@ -1,7 +1,7 @@
 @echo off
 title Yapper Desktop Voice HUD
 echo ==================================================================
-echo  🎙️ Starting Yapper Desktop Voice HUD (Wispr Flow Style)
+echo  🎙️ Starting Yapper Desktop Voice HUD (Universal Floating Pill)
 echo ==================================================================
 echo  - A floating widget will appear on top of your screen.
 echo  - Click into ANY application (VS Code, Word, Slack, Notion, Chrome).
