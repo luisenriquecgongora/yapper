@@ -1,7 +1,7 @@
 """Real-time duplex WebSocket route for 16kHz PCM audio streaming.
 
-Performs Silero VAD gating, speech segment accumulation, transcription inference,
-and conversational post-processing without disk storage.
+Performs Silero VAD gating, speech segment accumulation, and dispatches to
+TranscriptionPipeline for transcription inference and conversational post-processing.
 """
 
 import json
@@ -11,10 +11,8 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 from ..config import settings
-from ..engine.dsp import SpectralDenoisingFilter
-from ..engine.formatter import FlowFormatter
-from ..engine.hallucination import HallucinationGuard
-from ..engine.transcription import BaseTranscriber, get_transcriber
+from ..engine.pipeline import TranscriptionPipeline
+from ..engine.transcription import get_transcriber
 from ..engine.vad import SileroVAD
 
 logger = logging.getLogger(__name__)
@@ -32,21 +30,18 @@ async def audio_websocket_endpoint(
     """Duplex streaming WebSocket endpoint.
 
     Ingests 16kHz 16-bit PCM binary frames, applies Silero VAD gating,
-    optional spectral noise suppression, and returns formatted transcripts upon voice completion.
+    and returns formatted transcripts upon voice completion without disk storage.
     """
     await websocket.accept()
     logger.info("WebSocket connection established (language=%s, mode=%s, denoise=%s)", language, mode, denoise)
 
-    # Instantiate isolated per-connection session resources
+    # Isolated per-connection VAD and transcription pipeline
     vad = SileroVAD(
         model_path=settings.SILERO_MODEL_PATH or None,
         sample_rate=settings.SAMPLE_RATE,
         threshold=settings.VAD_THRESHOLD,
     )
-    denoiser = SpectralDenoisingFilter(sample_rate=settings.SAMPLE_RATE) if denoise else None
-    guard = HallucinationGuard()
-    transcriber: BaseTranscriber = get_transcriber()
-    formatter = FlowFormatter()
+    pipeline = TranscriptionPipeline(sample_rate=settings.SAMPLE_RATE, default_denoise=denoise)
 
     session_lang = language
     session_mode = mode
@@ -76,34 +71,24 @@ async def audio_websocket_endpoint(
         silence_start_time = None
         vad.reset_state()
 
-        t0 = time.perf_counter()
         try:
             logger.debug("Transcribing utterance (%d bytes, reason: %s)...", len(pcm_to_process), reason)
-            # Apply pre-transcription spectral denoising if enabled
-            audio_for_asr = denoiser.denoise_pcm(pcm_to_process) if denoiser else pcm_to_process
-            raw_asr = await transcriber.transcribe(audio_for_asr, language=session_lang)
-
-            # Filter autoregressive hallucinations and repetitive degenerate tokens
-            raw_text = guard.filter_transcript(raw_asr)
-
-            formatted_text = raw_text
-            extracted_action: Optional[Dict[str, Any]] = None
-
-            if raw_text:
-                if session_mode == "flow":
-                    formatted_text = await formatter.format_transcript(raw_text)
-                elif session_mode == "action" and action_schema:
-                    extracted_action = await formatter.extract_action(raw_text, action_schema)
-                    formatted_text = await formatter.format_transcript(raw_text)
-
-            elapsed_ms = int((time.perf_counter() - t0) * 1000)
+            transcriber = get_transcriber()
+            result = await pipeline.process(
+                pcm_bytes=pcm_to_process,
+                language=session_lang,
+                mode=session_mode,
+                denoise=denoise,
+                action_schema=action_schema,
+                transcriber=transcriber,
+            )
 
             response_payload = {
                 "type": "RESULT",
-                "raw": raw_text,
-                "text": formatted_text,
-                "action": extracted_action,
-                "duration_ms": elapsed_ms,
+                "raw": result.raw,
+                "text": result.text,
+                "action": result.action,
+                "duration_ms": result.duration_ms,
             }
             await websocket.send_text(json.dumps(response_payload))
         except Exception as exc:
