@@ -1,7 +1,7 @@
 """Real-time duplex WebSocket route for 16kHz PCM audio streaming.
 
 Performs Silero VAD gating, speech segment accumulation, transcription inference,
-and Wispr Flow post-processing without disk storage.
+and conversational post-processing without disk storage.
 """
 
 import json

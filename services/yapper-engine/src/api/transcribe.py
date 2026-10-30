@@ -37,7 +37,7 @@ async def transcribe_audio_endpoint(
     denoise: bool = Query(default=True),
     model: Optional[str] = Query(default=None),
 ) -> Dict[str, Any]:
-    """Transcribe an audio payload (WAV or 16-bit PCM) into clean text with Wispr Flow post-processing.
+    """Transcribe an audio payload (WAV or 16-bit PCM) into clean text with conversational post-processing.
 
     Accepts:
     - Raw binary audio body with Content-Type: audio/wav or application/octet-stream
@@ -83,7 +83,7 @@ async def transcribe_audio_endpoint(
     guard = HallucinationGuard()
     raw_text = guard.filter_transcript(raw_asr)
 
-    # 6. Apply Wispr Flow text cleanup (strip fillers, repair self-corrections)
+    # 6. Apply conversational text cleanup (strip fillers, repair self-corrections)
     formatted_text = raw_text
     if raw_text and mode == "flow":
         formatter = FlowFormatter()

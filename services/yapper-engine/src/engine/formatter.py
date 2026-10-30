@@ -1,4 +1,4 @@
-"""Wispr Flow text post-processor.
+"""Conversational text post-processor.
 
 Strips filler words, resolves speech self-corrections, enforces proper punctuation,
 and optionally extracts structured action JSON schemas using any LLM provider

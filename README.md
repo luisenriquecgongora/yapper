@@ -36,7 +36,7 @@
 | **Server Cost** | **$0.00 (Zero)** | **$0.00 (Zero)** | **$0.00 (Local)** or Cloud API cost | Pay-per-token API cost |
 | **Data Privacy** | **100% Client-Side** | Cloud (Browser vendor) | **100% On-Premises** (Local Faster-Whisper) | End-to-end encrypted, zero retention |
 | **VAD & Denoising** | Client Energy VAD | Browser hardware | **Silero VAD ONNX + STFT Spectral Denoise** | None |
-| **Post-Processing** | None (Raw Whisper) | Raw browser transcript | **Wispr Flow LLM (Filler removal & repair)** | None |
+| **Post-Processing** | None (Raw Whisper) | Raw browser transcript | **Natural Speech Cleaner (Filler removal & repair)** | None |
 | **Latency** | **~60ms – 120ms** (WebGPU) | **0ms – 50ms** (Instant) | **40ms – 140ms** (CTranslate2 / Groq LPU) | 150ms – 300ms |
 | **Accuracy** | High (Whisper Tiny/Base) | Medium | **State of the Art** (Whisper Large v3) | Very High (Whisper Large) |
 | **Deployment** | Zero install (Browser) | Any supported browser | **Docker (<80MB RAM)** / Python 3.12 | Node.js Express |
@@ -58,8 +58,8 @@ Yapper supports two primary deployment topologies: **100% Offline Edge Execution
 | **Local STT (Standard)**| Faster-Whisper `base.en` | 74M | **145 MB** | ~250 MB RAM | CPU / CUDA (int8) |
 | **Local STT (Accurate)**| Faster-Whisper `small.en`| 244M | **480 MB** | ~800 MB RAM | CPU / CUDA (int8/fp16) |
 | **Local STT (State of the Art)**| Faster-Whisper `large-v3-turbo` | 809M | **1.6 GB** | ~2.5 GB VRAM | NVIDIA CUDA / Apple MPS |
-| **Wispr Flow (Deterministic)** | Rule Engine & Regex Repair | N/A | **0 MB** | <5 MB RAM | Python CPU runtime |
-| **Wispr Flow (Local SLM)**| Qwen2.5-0.5B / Llama-3.2-1B | 0.5B–1B | **400 MB – 1.1 GB** | ~0.8 GB – 1.5 GB | Ollama / vLLM / llama.cpp |
+| **Speech Cleaner (Deterministic)** | Rule Engine & Regex Repair | N/A | **0 MB** | <5 MB RAM | Python CPU runtime |
+| **Speech Cleaner (Local SLM)**| Qwen2.5-0.5B / Llama-3.2-1B | 0.5B–1B | **400 MB – 1.1 GB** | ~0.8 GB – 1.5 GB | Ollama / vLLM / llama.cpp |
 | **Cloud Inference** | Groq / OpenAI Whisper & LLM | Remote | **0 MB** | <80 MB RAM | Cloud API Gateway |
 
 ### Deployment Footprint Profiles
@@ -87,9 +87,9 @@ yapper/
 │   ├── react/          # @yapper/react: React hooks (useTalk) & living UI components (TalkOrb, LocalModelCard)
 │   └── server/         # @yapper/server: Lightweight Zero Data Retention Node/Express cloud proxy
 ├── services/
-│   └── yapper-engine/  # Production async Python 3.12 / FastAPI streaming engine (Silero VAD, Local / OpenAI / Groq / vLLM, Wispr Flow)
+│   └── yapper-engine/  # Production async Python 3.12 / FastAPI streaming engine (Silero VAD, Local / OpenAI / Groq / vLLM, Speech Cleaner)
 ├── clients/
-│   ├── desktop_hud.py  # Wispr Flow-style floating desktop pill widget (global Alt+Space hotkey & cursor text typing)
+│   ├── desktop_hud.py  # Floating desktop voice pill widget (global hotkey & cursor text typing)
 │   └── run_desktop_hud.bat # Windows launcher script
 └── apps/
     └── showcase/       # Production Vite web application deployed to yapper.plaatoos.com
@@ -217,7 +217,7 @@ curl -X POST http://localhost:8089/api/transcribe \
 
 ### 4. Production Python Streaming Engine (`services/yapper-engine`)
 
-For high-throughput real-time streaming with Silero VAD gating, DSP spectral noise subtraction, Faster-Whisper/OpenAI/Groq inference, and Wispr Flow LLM text cleanup:
+For high-throughput real-time streaming with Silero VAD gating, DSP spectral noise subtraction, Faster-Whisper/OpenAI/Groq inference, and conversational speech text cleanup:
 
 ```bash
 cd services/yapper-engine
@@ -237,7 +237,7 @@ ws://localhost:8000/ws/audio?language=en&mode=flow
 
 ---
 
-### 5. Desktop Floating Voice HUD (Wispr Flow Style)
+### 5. Desktop Floating Voice HUD
 
 An always-on-top, draggable desktop voice pill widget that floats over any application (VS Code, Cursor, Notion, Slack, Word, Chrome). Press `Ctrl+Shift+Space`, speak your thoughts, and Yapper transcribes, removes filler words, and types the text directly at your cursor.
 

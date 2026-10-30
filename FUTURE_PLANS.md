@@ -170,7 +170,7 @@ Production speech services are often opaque black boxes. Demonstrating how raw w
 - **Real-Time Log-Mel Spectrogram Canvas**: 80-channel filterbank visualization rendered with Librosa / Matplotlib.
 - **VAD State Machine Curve**: Real-time plotting of speech probability $p(t)$ overlaid with energy hysteresis thresholds.
 - **Latency Waterfall Decomposition**:
-  $$\text{Audio Buffer (128ms)} \to \text{Silero VAD (8ms)} \to \text{Whisper Decode (65ms)} \to \text{Wispr Flow Cleanup (32ms)}$$
+  $$\text{Audio Buffer (128ms)} \to \text{Silero VAD (8ms)} \to \text{Whisper Decode (65ms)} \to \text{Speech Cleaner (32ms)}$$
 
 #### 3. Concrete Python Implementation Plan (`demo/dashboard.py`)
 - Build an interactive, browser-based UI using **Gradio 4.x** or **Streamlit**.
