@@ -17,6 +17,43 @@
 
 ---
 
+## 🏗️ Architecture & Component Flow
+
+The following diagram illustrates how `@yapper/react` connects tactile UI components, the `useTalk` hook state machine, and the underlying `@yapper/core` engine:
+
+```mermaid
+flowchart TD
+    subgraph ReactApp["Your React / Next.js Application"]
+        Component["Custom Voice Component"]
+    end
+
+    subgraph ReactHooks["@yapper/react Hooks & State Orchestration"]
+        UseTalk["useTalk() Hook\n(Reactive State & Telemetry)"]
+        State["State Machine:\nstatus, isListening, isTranscribing,\ninterimText, transcript, audioLevel"]
+
+        Component --> UseTalk
+        UseTalk --> State
+        State --> Component
+    end
+
+    subgraph UIComponents["Tactile UI Primitives"]
+        TalkOrb["<TalkOrb />\n(Living Wax-Seal Visualizer 60fps)"]
+        ModelCard["<LocalModelCard />\n(Download Progress & Cache Manager)"]
+        Drawer["<HardwareDrawer />\n(Engine & Model Scale Selector)"]
+
+        Component --> TalkOrb
+        Component --> ModelCard
+        Component --> Drawer
+    end
+
+    subgraph CoreEngine["@yapper/core Universal Engine"]
+        Client["TalkClient Instance\n(Web Audio & WebGPU Shaders)"]
+        UseTalk <--> Client
+    end
+```
+
+---
+
 ## 📦 Installation
 
 ```bash

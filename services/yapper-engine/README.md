@@ -29,6 +29,87 @@
 
 ---
 
+## 🏗️ Architecture & Component Interconnections
+
+The following diagram illustrates the internal audio and tensor pipeline within `yapper-engine`, and how external clients interface with it:
+
+```mermaid
+flowchart TD
+    subgraph Clients["Connected Client Applications"]
+        Desktop["Desktop Voice HUD\n(Python / Tkinter GUI)"]
+        WebPWA["Web Client & Showcase\n(yapper.plaatoos.com)"]
+        ReactApp["Custom Frontend App\n(@yapper/react & @yapper/core)"]
+        ThirdParty["Third-Party WebSockets / cURL"]
+    end
+
+    subgraph Network["Ingestion & Network Layer"]
+        FastAPI["FastAPI ASGI Server (:8000)"]
+        WS["Duplex WebSocket Endpoint\n(/ws/audio?language=en&mode=flow)"]
+        REST["REST API Endpoint\n(/v1/audio/transcriptions)"]
+        Health["Health Check & Telemetry\n(/health)"]
+
+        FastAPI --> WS
+        FastAPI --> REST
+        FastAPI --> Health
+    end
+
+    subgraph AudioPipeline["Audio Pre-Processing & Safety Gate"]
+        Buffer["Transient RAM PCM Ring Buffer\n(16kHz 16-bit Mono Float32)"]
+        DSP["Spectral Denoiser\n(STFT Hann 512-window subtraction)"]
+        SileroVAD["Silero VAD v5 ONNX\n(32ms neural speech filter)"]
+        Gate{"Voice Activity?"}
+
+        WS --> Buffer
+        REST --> Buffer
+        Buffer --> DSP
+        DSP --> SileroVAD
+        SileroVAD --> Gate
+        Gate -->|Silence / Noise| Drop["Halt Compute / Drop Chunk"]
+        Gate -->|Speech Detected| ActiveFrames["Accumulate Active Speech Window"]
+    end
+
+    subgraph ASRProviders["Pluggable Transcription Providers"]
+        ActiveFrames --> Router{"INFERENCE_BACKEND"}
+        LocalFW["Local faster-whisper\n(CTranslate2 int8/fp16)"]
+        Groq["Groq Cloud LPU\n(whisper-large-v3 <150ms)"]
+        OpenAI["OpenAI API\n(whisper-1 Cloud)"]
+        Custom["Self-Hosted / OpenAI-Compatible\n(vLLM, Ollama, Together AI)"]
+
+        Router -->|"local"| LocalFW
+        Router -->|"groq"| Groq
+        Router -->|"openai"| OpenAI
+        Router -->|"custom"| Custom
+    end
+
+    subgraph PostProcessing["Conversational Text Cleaner & Normalization"]
+        RawText["Raw Acoustic Transcript"]
+        LocalFW --> RawText
+        Groq --> RawText
+        OpenAI --> RawText
+        Custom --> RawText
+
+        EntropyCheck["Hallucination Blocker\n(Shannon entropy & zlib ratio)"]
+        TextFormatter["Conversational Text Cleaner\n(Filler words, casing, punctuation)"]
+
+        RawText --> EntropyCheck
+        EntropyCheck --> TextFormatter
+    end
+
+    TextFormatter -->|JSON interim/final streaming packets| WS
+    TextFormatter -->|JSON transcription response| REST
+
+    Clients <== "Duplex WebSocket / 16kHz PCM Stream" ==> WS
+    Clients --> "HTTP POST Multipart Audio" --> REST
+```
+
+### How the Streaming Microservice Works
+1. **Network Ingestion**: Audio enters via duplex WebSocket (`/ws/audio`) as raw 16 kHz 16-bit PCM binary chunks, bypassing disk writes entirely.
+2. **Audio Conditioning & VAD**: The `DSP` stage applies real-time STFT spectral subtraction, while `Silero VAD ONNX` gates compute. When silence is detected, audio is dropped immediately to prevent GPU looping.
+3. **Multi-Backend Inference**: The request is routed to your configured backend (`local` faster-whisper on GPU/CPU, `groq` LPU, `openai`, or self-hosted `vLLM`/`ollama`).
+4. **Conversational Speech Post-Processing**: The raw text runs through an entropy hallucination check and `ConversationalTextFormatter`, which strips verbal filler words (`um`, `uh`) and normalizes punctuation before dispatching JSON streaming responses back to clients.
+
+---
+
 ## 🛠️ Quickstart
 
 ### Option A: Docker Container (Recommended)

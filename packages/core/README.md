@@ -19,6 +19,66 @@
 
 ---
 
+## 🏗️ Architecture & Audio Signal Flow
+
+The following diagram illustrates how `@yapper/core` captures audio on dedicated browser worker threads and routes inference between on-device WebGPU Whisper and Native Web Speech:
+
+```mermaid
+flowchart TD
+    subgraph AudioCapture["Client Audio Capture & Decimation"]
+        Mic["Microphone Hardware"]
+        Ctx["AudioContext & MediaStream"]
+        Worklet["AudioWorklet Processor\n(Dedicated Audio Thread)"]
+        Resampler["Zero-Copy 16kHz Mono Resampler"]
+
+        Mic --> Ctx
+        Ctx --> Worklet
+        Worklet --> Resampler
+    end
+
+    subgraph Gating["Client VAD & Chunking"]
+        VAD["Energy VAD & RMS Noise Gate\n(Zero CPU/GPU idle cost)"]
+        Agreement["Streaming Agreement Chunking\n(Confidence & overlap validator)"]
+
+        Resampler --> VAD
+        VAD -->|Active Speech| Agreement
+    end
+
+    subgraph EngineSelection["Dual In-Browser Engines"]
+        Selector{"Engine Mode"}
+        Agreement --> Selector
+
+        subgraph Worker["Isolated Web Worker (whisper.worker.ts)"]
+            ONNX["ONNX Runtime Web\n(WebGPU WGSL Compute Shaders)"]
+            Whisper["Quantized Whisper q4\n(tiny.en / base / small)"]
+            ONNX --> Whisper
+        end
+
+        Native["Native Web Speech API\n(webkitSpeechRecognition instant 0ms)"]
+        Supervisor["Self-Healing Supervisor Loop\n(Auto-restart on silence)"]
+        Native <--> Supervisor
+
+        Selector -->|"local" (WebGPU)| Worker
+        Selector -->|"browser" (Native)| Native
+    end
+
+    subgraph Emitter["Client API & Telemetry"]
+        TalkClient["TalkClient Event Bus"]
+        Worker -->|Tokens| TalkClient
+        Native -->|Syllables| TalkClient
+
+        OnInterim["onInterim(text)"]
+        OnFinal["onFinal(text)"]
+        OnAudio["onAudioLevel(rms)"]
+
+        TalkClient --> OnInterim
+        TalkClient --> OnFinal
+        TalkClient --> OnAudio
+    end
+```
+
+---
+
 ## 📦 Installation
 
 ```bash

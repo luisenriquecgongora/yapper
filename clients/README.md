@@ -12,10 +12,73 @@
 
 The **Yapper Desktop HUD** is an ultra-lightweight, always-on-top tactile floating widget inspired by the letterpress aesthetic of *Her*.
 
-1. **Global Hotkey Listening**: A background listener (`pynput`) listens for `Ctrl+Shift+Space` globally across your entire OS (collision-free, avoiding the Windows `Alt+Space` title bar system menu).
+1. **Global Hotkey Listening**: A background listener (`pynput`) listens for `Ctrl+Shift+Space` (Windows) or `Cmd+Shift+Space` (macOS) globally across your entire OS.
 2. **Low-Latency Microphone Capture**: When activated, `sounddevice` streams 16kHz 16-bit PCM audio directly from your microphone into memory.
-3. **Backend Processing**: When you press `Ctrl+Shift+Space` again, audio is dispatched to the local/docker `yapper-engine` (or transcribed locally) where Silero VAD, STFT denoising, Whisper ASR, and natural conversational cleanup take place.
-4. **Active Window Injection**: The cleaned transcript is written to the system clipboard and pasted instantly via simulated `Ctrl+V` right where your mouse or cursor was focused.
+3. **Cancellation Safety**: Pressing `Esc` or clicking the Cancel button immediately flushes memory buffers and returns to idle without typing a single character.
+4. **Backend Processing & Cleanup**: Audio is processed through local `faster-whisper` (or remote `yapper-engine`), where Silero VAD gating, speech recognition, and natural conversational cleanup (filler word removal and punctuation formatting) take place.
+5. **Active Window Injection**: The cleaned transcript is typed directly into whichever application has focus (**VS Code, Notion, Slack, Word, or Chrome**) via `pynput` / Windows `SendInput`.
+
+---
+
+## 🏗️ Architecture & Component Interconnections
+
+The following diagram illustrates how the desktop HUD client functions, how it intercepts OS input, and which services it connects to:
+
+```mermaid
+flowchart TD
+    subgraph UserSpace["User OS Workspace"]
+        App["Target Focused App\n(VS Code, Notion, Slack, Word, Chrome)"]
+        UserHotkey["Global Hotkey\n(Ctrl+Shift+Space / Cmd+Shift+Space)"]
+        UserCancel["Abort Trigger\n(Esc Key / 'Cancel' Button)"]
+    end
+
+    subgraph HUDClient["Yapper Desktop Voice HUD (clients/desktop_hud.py)"]
+        HotkeyDaemon["Global Hotkey Daemon\n(pynput background thread)"]
+        PillGUI["Tkinter Floating Pill HUD\n(Always-on-Top · Drag & Drop)"]
+        AudioStream["Microphone Ingestion\n(sounddevice 16kHz 16-bit PCM)"]
+        CancelHandler["Cancel & Discard Handler\n(Zero keystrokes emitted)"]
+        SettingsDrawer["Settings Drawer\n(Model scale & hardware RAM/VRAM)"]
+
+        UserHotkey --> HotkeyDaemon
+        UserCancel --> CancelHandler
+        HotkeyDaemon -->|Toggle recording state| PillGUI
+        CancelHandler -->|Purge audio buffer| PillGUI
+        PillGUI -->|Start/Stop capture| AudioStream
+        PillGUI <--> SettingsDrawer
+    end
+
+    subgraph EngineResolution["Speech Processing Pipeline"]
+        Choice{"Engine Mode"}
+        LocalFW["Local In-Process faster-whisper\n(CTranslate2 int8 CPU/CUDA)"]
+        RemoteEngine["Remote yapper-engine\n(HTTP / Duplex WebSocket :8000)"]
+        Formatter["Conversational Text Cleaner\n(Filler stripping & punctuation)"]
+
+        AudioStream --> Choice
+        Choice -->|"Default (100% Offline)"| LocalFW
+        Choice -->|"YAPPER_ENGINE_URL"| RemoteEngine
+        LocalFW --> Formatter
+        RemoteEngine --> Formatter
+    end
+
+    subgraph InjectionLayer["Keystroke Emission"]
+        Typer["OS Input Injector\n(pynput / Windows SendInput)"]
+        Formatter --> Typer
+        Typer -->|Auto-types text into cursor| App
+    end
+
+    subgraph ExternalServices["External Services & Distribution"]
+        R2["Cloudflare R2 Bucket\n(Max 5 latest Desktop Releases)"]
+        HF["HuggingFace Hub Cache\n(~/.cache/huggingface/hub/)"]
+
+        R2 -.->|Download Portable .zip bundle| HUDClient
+        HF -.->|Local neural weights on first run| LocalFW
+    end
+```
+
+### Connected Services & Protocols
+- **Local In-Process Engine (`faster-whisper`)**: By default, the HUD runs completely offline. It initializes CTranslate2 directly in Python memory and caches model weights (`tiny.en`, `base.en`, etc.) in `~/.cache/huggingface/hub/`.
+- **Remote Streaming Engine (`services/yapper-engine`)**: When configured with `YAPPER_ENGINE_URL=http://localhost:8000`, the HUD dispatches recorded PCM audio over WebSocket/HTTP to the FastAPI microservice for server-side GPU decoding.
+- **Cloud Distribution (`Cloudflare R2`)**: Pre-packaged standalone ZIP bundles (`Yapper-windows-x64.zip` and `Yapper-macos.zip`) are published to Cloudflare R2 with an automated 5-version retention limit.
 
 ---
 
