@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Yapper Engine",
-    description="High-throughput async speech-to-text WebSocket streaming engine with Silero VAD and Wispr Flow.",
+    description="High-throughput async speech-to-text WebSocket streaming engine with Silero VAD and conversational text cleanup.",
     version="1.0.0",
     lifespan=lifespan,
 )

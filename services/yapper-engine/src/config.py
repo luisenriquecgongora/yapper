@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     )
     LLM_MODEL: Optional[str] = Field(
         default=None,
-        description="Override LLM model identifier for Wispr Flow text cleanup",
+        description="Override LLM model identifier for conversational text cleanup",
     )
 
     # OpenAI provider configuration

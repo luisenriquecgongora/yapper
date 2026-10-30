@@ -1,6 +1,6 @@
 # ⚡ Yapper Engine (`services/yapper-engine`)
 
-> **Production-grade, async Python 3.12 / FastAPI streaming speech-to-text service with Silero VAD gating, universal provider support (Local, OpenAI, Groq, vLLM), and Wispr Flow post-processing.**
+> **Production-grade, async Python 3.12 / FastAPI streaming speech-to-text service with Silero VAD gating, universal provider support (Local, OpenAI, Groq, vLLM), and conversational speech post-processing.**
 
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111%2B-teal.svg)](https://fastapi.tiangolo.com)
@@ -12,7 +12,7 @@
 
 ## 🚀 Overview
 
-`yapper-engine` is the high-throughput backend service for the Yapper speech-to-text ecosystem. It ingests 16kHz 16-bit mono PCM audio over duplex WebSockets, applies low-latency Silero Voice Activity Detection (VAD) gating, and executes transcription with Wispr Flow conversational cleanup.
+`yapper-engine` is the high-throughput backend service for the Yapper speech-to-text ecosystem. It ingests 16kHz 16-bit mono PCM audio over duplex WebSockets, applies low-latency Silero Voice Activity Detection (VAD) gating, and executes transcription with conversational speech cleanup.
 
 ### Key Capabilities
 - **Universal Provider Architecture**:
@@ -24,7 +24,7 @@
 - **Neural Spectral Denoising (DSP)**: Real-time STFT 512-sample Hann-windowed spectral subtraction with SNR estimation (`src/engine/dsp.py`).
 - **Low-Footprint Silero VAD**: Evaluates 32ms audio windows via ONNX Runtime (<1.8MB model) with adaptive fallback.
 - **Autoregressive Hallucination Guard**: Shannon entropy $H(X)$ & Kolmogorov $zlib$ compressibility checks to halt decoder loops (`src/engine/hallucination.py`).
-- **Wispr Flow Post-Processor**: Strips filler words (`um`, `uh`, `you know`), heals conversational self-corrections (`table four, actually table five` $\to$ `Table five.`), and enforces punctuation via LLM or deterministic regex.
+- **Conversational Text Post-Processor**: Strips filler words (`um`, `uh`, `you know`), heals conversational self-corrections (`table four, actually table five` $\to$ `Table five.`), and enforces punctuation via LLM or deterministic regex.
 - **Structured Action Extraction**: Converts spoken thoughts into deterministic JSON schemas.
 
 ---
@@ -110,7 +110,7 @@ python -m src.main
 
 ---
 
-### 🖥️ Desktop HUD Client (Wispr Flow Style)
+### 🖥️ Desktop HUD Client (Floating Voice Pill)
 
 Connect the floating desktop voice widget directly to this engine:
 ```bash
@@ -199,9 +199,9 @@ ws://localhost:8000/ws/audio?language=en&mode=flow
 | **Faster-Whisper Base** | CTranslate2 `base.en` | 74M | **145 MB** | ~250 MB RAM | Balanced speed / vocabulary coverage |
 | **Faster-Whisper Small** | CTranslate2 `small.en` | 244M | **480 MB** | ~800 MB RAM | Higher precision; suited for multicore CPUs / GPUs |
 | **Faster-Whisper Large v3** | CTranslate2 `large-v3-turbo` | 809M | **1.6 GB** | ~2.5 GB VRAM | SOTA WER; recommended with CUDA / MPS |
-| **Wispr Flow (Regex Heuristics)**| Native Python Engine (`src/engine/formatter.py`) | N/A | **0 MB** | <5 MB RAM | Strips fillers & repairs stutter deterministic rules |
-| **Wispr Flow (Cloud LLM)** | Groq `llama-3.1-8b` / OpenAI `gpt-4o-mini` | Remote | **0 MB** | ~0 MB | Sub-100ms conversational formatting pass |
-| **Wispr Flow (Local SLM)** | vLLM / Ollama (`qwen2.5:0.5b` or `llama3.2:1b`) | 0.5B–1B | **400 MB–1.1 GB**| ~0.8 GB–1.5 GB | Fully offline local conversational repair |
+| **Speech Cleaner (Regex Heuristics)**| Native Python Engine (`src/engine/formatter.py`) | N/A | **0 MB** | <5 MB RAM | Strips fillers & repairs stutter deterministic rules |
+| **Speech Cleaner (Cloud LLM)** | Groq `llama-3.1-8b` / OpenAI `gpt-4o-mini` | Remote | **0 MB** | ~0 MB | Sub-100ms conversational formatting pass |
+| **Speech Cleaner (Local SLM)** | vLLM / Ollama (`qwen2.5:0.5b` or `llama3.2:1b`) | 0.5B–1B | **400 MB–1.1 GB**| ~0.8 GB–1.5 GB | Fully offline local conversational repair |
 
 ### Container Runtime Profiles
 
