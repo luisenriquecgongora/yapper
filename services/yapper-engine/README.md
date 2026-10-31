@@ -106,7 +106,7 @@ flowchart TD
 1. **Network Ingestion**: Audio enters via duplex WebSocket (`/ws/audio`) as raw 16 kHz 16-bit PCM binary chunks, bypassing disk writes entirely.
 2. **Audio Conditioning & VAD**: The `DSP` stage applies real-time STFT spectral subtraction, while `Silero VAD ONNX` gates compute. When silence is detected, audio is dropped immediately to prevent GPU looping.
 3. **Multi-Backend Inference**: The request is routed to your configured backend (`local` faster-whisper on GPU/CPU, `groq` LPU, `openai`, or self-hosted `vLLM`/`ollama`).
-4. **Conversational Speech Post-Processing**: The raw text runs through an entropy hallucination check and `ConversationalTextFormatter`, which strips verbal filler words (`um`, `uh`) and normalizes punctuation before dispatching JSON streaming responses back to clients.
+4. **Conversational Speech Post-Processing (Unified Pipeline)**: The raw text runs through `TranscriptionPipeline` (`src/engine/pipeline.py`), which consolidates DSP denoising, ASR decoding, Shannon entropy hallucination checking, and `FlowFormatter` filler stripping into a single DRY pipeline shared by both WebSocket and HTTP REST endpoints.
 
 ---
 

@@ -33,19 +33,24 @@ flowchart TD
         UserCancel["Abort Trigger\n(Esc Key / 'Cancel' Button)"]
     end
 
-    subgraph HUDClient["Yapper Desktop Voice HUD (clients/desktop_hud.py)"]
-        HotkeyDaemon["Global Hotkey Daemon\n(pynput background thread)"]
-        PillGUI["Tkinter Floating Pill HUD\n(Always-on-Top · Drag & Drop)"]
-        AudioStream["Microphone Ingestion\n(sounddevice 16kHz 16-bit PCM)"]
-        CancelHandler["Cancel & Discard Handler\n(Zero keystrokes emitted)"]
-        SettingsDrawer["Settings Drawer\n(Model scale & hardware RAM/VRAM)"]
+    subgraph HUDClient["Yapper Desktop Voice HUD (clients/hud/)"]
+        Entrypoint["Launcher & Entrypoint\n(clients/desktop_hud.py)"]
+        HotkeyDaemon["Global Hotkey Listener\n(clients/hud/input.py)"]
+        TextTyper["Keystroke Injector\n(clients/hud/input.py)"]
+        PillGUI["Tkinter Floating Pill HUD\n(clients/hud/ui.py)"]
+        AudioStream["Microphone Ingestion\n(clients/hud/audio.py)"]
+        ModelCatalog["Model Catalog & Download\n(clients/hud/models.py)"]
+        HardwareSpec["RAM / VRAM Profiling\n(clients/hud/hardware.py)"]
+        TranscriberRoute["Transcription Client\n(clients/hud/transcriber.py)"]
 
+        Entrypoint --> PillGUI
         UserHotkey --> HotkeyDaemon
-        UserCancel --> CancelHandler
         HotkeyDaemon -->|Toggle recording state| PillGUI
-        CancelHandler -->|Purge audio buffer| PillGUI
+        UserCancel -->|Esc abort| PillGUI
+        PillGUI <--> HardwareSpec
+        PillGUI <--> ModelCatalog
         PillGUI -->|Start/Stop capture| AudioStream
-        PillGUI <--> SettingsDrawer
+        AudioStream --> TranscriberRoute
     end
 
     subgraph EngineResolution["Speech Processing Pipeline"]
@@ -54,7 +59,7 @@ flowchart TD
         RemoteEngine["Remote yapper-engine\n(HTTP / Duplex WebSocket :8000)"]
         Formatter["Conversational Text Cleaner\n(Filler stripping & punctuation)"]
 
-        AudioStream --> Choice
+        TranscriberRoute --> Choice
         Choice -->|"Default (100% Offline)"| LocalFW
         Choice -->|"YAPPER_ENGINE_URL"| RemoteEngine
         LocalFW --> Formatter
@@ -62,9 +67,8 @@ flowchart TD
     end
 
     subgraph InjectionLayer["Keystroke Emission"]
-        Typer["OS Input Injector\n(pynput / Windows SendInput)"]
-        Formatter --> Typer
-        Typer -->|Auto-types text into cursor| App
+        Formatter --> TextTyper
+        TextTyper -->|Auto-types text into cursor| App
     end
 
     subgraph ExternalServices["External Services & Distribution"]
@@ -75,6 +79,21 @@ flowchart TD
         HF -.->|Local neural weights on first run| LocalFW
     end
 ```
+
+### Modular Code Architecture (SOLID & DRY)
+
+The Desktop HUD is decomposed into specialized, single-responsibility modules under `clients/hud/`:
+
+| Module | Responsibility (SRP) | SOLID Role |
+| :--- | :--- | :--- |
+| [`clients/desktop_hud.py`](desktop_hud.py) | Lightweight backward-compatible application launcher (< 60 lines) | Orchestrator entrypoint |
+| [`clients/hud/hardware.py`](hud/hardware.py) | Cross-platform GPU, dedicated VRAM, and RAM discovery (`winreg`, `psutil`) | Single Responsibility |
+| [`clients/hud/models.py`](hud/models.py) | Whisper model catalog, memory heuristics, compatibility scoring & cache checks | Single Responsibility |
+| [`clients/hud/audio.py`](hud/audio.py) | Microphone stream lifecycle, PCM buffering, and WAV serialization | Interface Segregation |
+| [`clients/hud/input.py`](hud/input.py) | Global OS hotkey listening daemon & simulated keystroke/clipboard paste | Dependency Inversion |
+| [`clients/hud/transcriber.py`](hud/transcriber.py) | Dispatches audio to HTTP microservice with direct in-process fallback | Open / Closed |
+| [`clients/hud/ui.py`](hud/ui.py) | Tactile floating paper pill, canvas orb button, pulse animation & settings drawer | Presentation Layer |
+| [`clients/hud/config.py`](hud/config.py) | Color palette themes, default hotkeys, sample rates, and file paths | DRY Theme Constants |
 
 ### Connected Services & Protocols
 - **Local In-Process Engine (`faster-whisper`)**: By default, the HUD runs completely offline. It initializes CTranslate2 directly in Python memory and caches model weights (`tiny.en`, `base.en`, etc.) in `~/.cache/huggingface/hub/`.
