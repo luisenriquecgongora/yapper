@@ -2,6 +2,7 @@
   "buildCommand": "yarn workspace yapper-showcase build",
   "outputDirectory": "apps/showcase/dist",
   "framework": "vite",
+  "ignoreCommand": "case \"$VERCEL_GIT_COMMIT_REF\" in dependabot/*) exit 0;; *) exit 1;; esac",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
