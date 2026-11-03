@@ -1,6 +1,5 @@
 """Acoustic latency, Real-Time Factor (RTF), and Pareto frontier benchmark suite."""
 
-import asyncio
 import math
 from pathlib import Path
 import struct
@@ -14,8 +13,8 @@ engine_root = Path(__file__).resolve().parent.parent
 if str(engine_root) not in sys.path:
     sys.path.insert(0, str(engine_root))
 
-from src.engine.dsp import SpectralDenoisingFilter
-from src.engine.vad import SileroVAD
+from src.engine.dsp import SpectralDenoisingFilter  # noqa: E402  (needs the sys.path entry above)
+from src.engine.vad import SileroVAD  # noqa: E402
 
 
 @dataclass

@@ -5,7 +5,6 @@ Deletions, Insertions), and dataset-level aggregated acoustic metrics.
 """
 
 import re
-import sys
 from typing import Any, Dict, List, Tuple
 
 

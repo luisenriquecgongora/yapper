@@ -4,9 +4,8 @@ Implements real-time spectral subtraction via Short-Time Fourier Transform (STFT
 noise profile tracking, and acoustic Signal-to-Noise Ratio (SNR) evaluation.
 """
 
-import math
 import logging
-from typing import Optional, Tuple
+from typing import Optional
 import numpy as np
 
 logger = logging.getLogger(__name__)

@@ -2,10 +2,7 @@
 
 import logging
 import os
-import shutil
 import tarfile
-import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -50,7 +47,6 @@ def download_from_r2_cdn(
 
     headers = {"User-Agent": "YapperEngine/1.0 (+https://yapper.plaatoos.com)"}
     resp = None
-    chosen_url = None
 
     for url in candidate_urls:
         logger.info("Attempting Cloudflare R2 CDN download from: %s", url)
@@ -65,7 +61,6 @@ def download_from_r2_cdn(
 
             if r.status_code == 200:
                 resp = r
-                chosen_url = url
                 break
             else:
                 logger.info("R2 URL %s returned status %d", url, r.status_code)
