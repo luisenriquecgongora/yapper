@@ -13,10 +13,10 @@ Usage:
 """
 
 import argparse
-import json
 import logging
 import os
 import sys
+import time
 from pathlib import Path
 
 try:
@@ -38,8 +38,6 @@ logger = logging.getLogger("r2.publisher")
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DIST_DIR = ROOT_DIR / "dist"
 
-
-import time
 
 def load_fallback_env():
     possible_envs = [

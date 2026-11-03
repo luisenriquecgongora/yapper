@@ -16,9 +16,8 @@ import argparse
 import logging
 import os
 import re
-import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 try:
     import boto3

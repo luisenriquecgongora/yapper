@@ -14,7 +14,6 @@ import argparse
 import logging
 import os
 import tarfile
-import tempfile
 import time
 from pathlib import Path
 from typing import List
