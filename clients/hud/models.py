@@ -3,7 +3,7 @@
 import os
 import sys
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 AVAILABLE_MODELS: List[Dict[str, Any]] = [
     {

@@ -79,7 +79,8 @@ def get_system_specs() -> Dict[str, Any]:
     # 3. Windows Registry GPU & VRAM detection (winreg) - zero-process, instantaneous
     elif sys.platform == "win32":
         try:
-            import winreg, struct
+            import winreg
+            import struct
             base_key = r"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"
             with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, base_key) as k:
                 i = 0
