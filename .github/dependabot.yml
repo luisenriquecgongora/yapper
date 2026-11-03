@@ -1,0 +1,30 @@
+# Weekly dependency updates. Minor and patch bumps are grouped into one PR per
+# ecosystem; major bumps get their own PR so breaking changes stay reviewable.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    commit-message: { prefix: build, include: scope }
+    groups:
+      node:
+        update-types: [minor, patch]
+
+  - package-ecosystem: pip
+    directories: [/services/yapper-engine, /clients]
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    commit-message: { prefix: build, include: scope }
+    groups:
+      python:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+    commit-message: { prefix: ci }
+    groups:
+      actions:
+        patterns: ["*"]
