@@ -28,6 +28,21 @@ def is_model_cached_locally(model_name: str = "tiny.en") -> bool:
     return all((target_dir / f).is_file() and (target_dir / f).stat().st_size > 100 for f in MODEL_FILES)
 
 
+def safe_extract(tar: tarfile.TarFile, target_dir: Path) -> None:
+    """Extract only regular files and directories that stay inside target_dir."""
+    root = target_dir.resolve()
+    for member in tar.getmembers():
+        if not (member.isfile() or member.isdir()):
+            raise ValueError(f"Refusing archive entry of unsupported type: {member.name}")
+        dest = (root / member.name).resolve()
+        if dest != root and root not in dest.parents:
+            raise ValueError(f"Refusing archive entry outside target dir: {member.name}")
+    if hasattr(tarfile, "data_filter"):
+        tar.extractall(path=root, filter="data")
+    else:
+        tar.extractall(path=root)
+
+
 def download_from_r2_cdn(
     model_name: str = "tiny.en",
     cdn_base_url: Optional[str] = None,
@@ -53,11 +68,7 @@ def download_from_r2_cdn(
         if progress_callback:
             progress_callback(0.05, f"Connecting to R2 CDN ({model_name})...")
         try:
-            try:
-                r = requests.get(url, headers=headers, stream=True, timeout=20)
-            except requests.exceptions.SSLError:
-                logger.warning("R2 SSL verification failed, retrying with unverified context...")
-                r = requests.get(url, headers=headers, stream=True, timeout=20, verify=False)
+            r = requests.get(url, headers=headers, stream=True, timeout=20)
 
             if r.status_code == 200:
                 resp = r
@@ -91,7 +102,7 @@ def download_from_r2_cdn(
         if progress_callback:
             progress_callback(0.96, "Extracting model weights...")
         with tarfile.open(tar_path, "r:gz") as tar:
-            tar.extractall(path=target_dir)
+            safe_extract(tar, target_dir)
 
         # Cleanup tarball
         if tar_path.exists():
