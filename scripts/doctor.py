@@ -45,9 +45,6 @@ def check_audio_devices():
         return False, f"Audio device query failed: {e}", "Check PortAudio library"
 
 def check_gpu():
-    details = []
-    has_accel = False
-
     # 1. Check PyTorch CUDA if available
     try:
         import torch

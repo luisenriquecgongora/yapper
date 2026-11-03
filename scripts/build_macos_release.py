@@ -7,12 +7,10 @@ and full engine services.
 
 import argparse
 import hashlib
-import json
 import logging
 import os
 import shutil
 import stat
-import sys
 import zipfile
 from pathlib import Path
 
