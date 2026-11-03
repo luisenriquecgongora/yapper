@@ -1,0 +1,105 @@
+"""Run every check CI runs, in one command. This is the definition of done.
+
+Usage:
+    python scripts/verify.py                 # everything
+    python scripts/verify.py --only <group>  # one group, see CHECKS below
+
+Uses the project virtualenv (VENV below) when it exists, so nothing has to be
+activated first; set VERIFY_PYTHON to use another interpreter (e.g. from a git
+worktree, which has no virtualenv of its own). Exits non-zero on the first failure.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+# --- Repo-specific configuration --------------------------------------------
+VENV = ROOT / "services/yapper-engine/.venv"
+# (group, name, working directory relative to ROOT, command). Tokens: "{py}" is the
+# Python interpreter, "{ruff}", "{yarn}". A check whose tool or directory is missing
+# is skipped and reported.
+CHECKS: list[tuple[str, str, str, list[str]]] = [
+    ("python", "ruff", ".", ["{ruff}", "check", "services/yapper-engine", "clients", "scripts"]),
+    ("python", "engine tests", "services/yapper-engine", ["{py}", "-m", "pytest", "-q"]),
+    ("node", "core tests", ".", ["{yarn}", "workspace", "@yapper/core", "test"]),
+    ("node", "core typecheck", ".", ["{yarn}", "workspace", "@yapper/core", "tsc", "--noEmit"]),
+    ("node", "core build (react imports its dist)", ".", ["{yarn}", "workspace", "@yapper/core", "build"]),
+    ("node", "react typecheck", ".", ["{yarn}", "workspace", "@yapper/react", "tsc", "--noEmit"]),
+    ("node", "showcase typecheck", ".", ["{yarn}", "workspace", "yapper-showcase", "tsc", "--noEmit"]),
+]
+# -----------------------------------------------------------------------------
+
+
+def python_interpreter() -> str:
+    if os.environ.get("VERIFY_PYTHON"):
+        return os.environ["VERIFY_PYTHON"]
+    for candidate in (VENV / "Scripts" / "python.exe", VENV / "bin" / "python"):
+        if candidate.exists():
+            return str(candidate)
+    return sys.executable
+
+
+def ruff_command(py: str) -> list[str] | None:
+    """ruff from the project interpreter if installed there, else from PATH."""
+    probe = subprocess.run([py, "-m", "ruff", "--version"], capture_output=True)
+    if probe.returncode == 0:
+        return [py, "-m", "ruff"]
+    on_path = shutil.which("ruff")
+    return [on_path] if on_path else None
+
+
+def secret_scan() -> list[tuple[str, str, str, list[str]]]:
+    # "{gitleaks}" resolves to None when it is not installed; CI always runs it.
+    return [("secrets", "secret scan", ".", ["{gitleaks}", "git", "--no-banner", "--redact", "."])]
+
+
+def main() -> int:
+    groups = sorted({group for group, *_ in CHECKS} | {"secrets"})
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--only", choices=groups)
+    args = parser.parse_args()
+
+    py = python_interpreter()
+    tools = {
+        "{py}": [py],
+        "{yarn}": [shutil.which("yarn") or "yarn"],
+        "{ruff}": ruff_command(py),
+        "{gitleaks}": [shutil.which("gitleaks")] if shutil.which("gitleaks") else None,
+    }
+    skipped: list[str] = []
+    for group, name, cwd, cmd in CHECKS + secret_scan():
+        if args.only and group != args.only:
+            continue
+        workdir = ROOT / cwd
+        reason = None
+        if not workdir.exists():
+            reason = f"{cwd} not found"
+        elif "{yarn}" in cmd and not any((d / "node_modules").exists() for d in (workdir, ROOT)):
+            reason = f"run `yarn install` in {cwd} first"
+        elif any(tools.get(part, True) is None for part in cmd):
+            reason = f"{next(p for p in cmd if tools.get(p, True) is None).strip('{}')} not installed"
+        if reason:
+            print(f"-- {name}: SKIPPED ({reason})")
+            skipped.append(name)
+            continue
+        print(f"-- {name}", flush=True)
+        argv = [arg for part in cmd for arg in tools.get(part, [part])]
+        if subprocess.run(argv, cwd=workdir).returncode != 0:
+            print(f"FAILED: {name}", file=sys.stderr)
+            return 1
+    if skipped:
+        print(f"verify: passed, but NOT COMPLETE. Skipped: {', '.join(skipped)}")
+    else:
+        print("verify: all checks passed")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -14,6 +14,7 @@
     "build:react": "yarn workspace @yapper/react build",
     "build:server": "yarn workspace @yapper/server build",
     "build:showcase": "yarn workspace yapper-showcase build",
+    "verify": "python scripts/verify.py",
     "test": "yarn workspace @yapper/core test"
   },
   "keywords": [
