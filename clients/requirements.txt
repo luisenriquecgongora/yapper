@@ -4,5 +4,5 @@ pynput>=1.8.0
 
 # Numerical buffer & HTTP client
 numpy>=1.26.0
-requests>=2.30.0
+requests>=2.34.2
 truststore>=0.9.0
