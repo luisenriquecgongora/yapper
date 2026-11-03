@@ -30,3 +30,39 @@ All commits must follow:
   3. `test(<scope>): ...` (Specs/tests)
 - **Blast-Radius Cap:** A single commit must not exceed 5 staged files (excluding lockfiles/documentation).
 - **Bisect Safety:** Every individual commit must compile and pass tests.
+
+### 5. Definition of Done
+- Run `python scripts/verify.py` (or `yarn verify`) before reporting a task complete. It runs exactly what CI runs: ruff over `services/yapper-engine`, `clients` and `scripts`; engine pytest; `@yapper/core` tests; typechecks for `core`, `react` and `showcase` (it builds `core` first, because `react` imports its `dist/`); and a secret scan when `gitleaks` is installed. Skipped checks are listed; "NOT COMPLETE" means you are not done.
+- Narrow it while iterating: `--only python`, `--only node`, `--only secrets`.
+- Python: uses `services/yapper-engine/.venv`; set `VERIFY_PYTHON` to override (e.g. in a git worktree).
+- A task that changes behavior adds or updates a test (`*.test.ts` next to the source, or `services/yapper-engine/tests/`).
+
+### 6. Repository Map
+| Path | What lives there |
+| :--- | :--- |
+| `packages/core` | `TalkClient`, audio processing (energy VAD, AudioWorklet downsampler), engines: browser speech, cloud stream, local Whisper (Web Worker), streaming agreement |
+| `packages/react` | `useTalk` hook, `TalkOrb`, `TalkDictationPill`, `LocalModelCard` |
+| `packages/server` | Express gateway proxying audio to OpenAI / Groq / self-hosted Whisper; stores no audio |
+| `apps/showcase` | Marketing and demo site (Vite); `src/App.tsx` is one large file |
+| `services/yapper-engine` | FastAPI engine on port 8000: `GET /health`, `POST /api/transcribe`, WebSocket `/ws/audio`; pipeline in `src/engine/` (DSP, VAD, hallucination filter, formatter, model loader) |
+| `clients/hud` | Tkinter desktop HUD that records audio and transcribes through the engine or locally |
+| `scripts/` | Release builds, R2 publish/prune/model upload, `doctor.py` diagnostics, `verify.py` |
+
+### 7. Commands
+- Install: `yarn install`; engine: `cd services/yapper-engine && uv venv && uv pip install -r requirements.txt`
+- Showcase: `yarn dev`
+- Engine: `cd services/yapper-engine && python -m src.main` (settings via env, see `src/config.py`)
+- Desktop HUD: `python clients/desktop_hud.py`
+- Diagnose a machine: `python scripts/doctor.py`
+
+### 8. Gotchas
+- The AudioWorklet runs from the inline string `PCM_DOWNSAMPLER_WORKLET_CODE` in `packages/core/src/audio/audioProcessor.ts`; there is no separate worklet file.
+- The HUD reads `YAPPER_ENGINE_URL` (default `http://localhost:8000`) and falls back to `http://localhost:8089`.
+- `packages/server` has no `tsconfig.json`, so it is not typechecked yet.
+- Model archives are downloaded and extracted at runtime by `src/engine/model_loader.py`; never commit them (`dist/*.tar.gz` is a local release cache).
+- Ruff rules are pinned in the root `ruff.toml`.
+
+### 9. Never
+- Never store or log raw user audio or transcripts outside the request.
+- Never read, print or commit `.env` files or API keys.
+- Never force-push or rewrite published history.
