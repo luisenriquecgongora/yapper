@@ -21,6 +21,7 @@ for a check the change touches. Quote failures exactly.
 
 ## 3. Correctness
 
+- Does a change to the parts or a flow (engine choice, pipeline, model download) update `docs/ARCHITECTURE.md` and its diagrams (`AGENTS.md`, section 11)?
 - Does every behavior change come with a test (`*.test.ts` next to the source, or `services/yapper-engine/tests/`) that fails without it? Tests never call a real STT provider or download a model.
 - Audio format: the engine expects raw 16 kHz 16-bit mono PCM; the AudioWorklet downsampler (`PCM_DOWNSAMPLER_WORKLET_CODE` in `packages/core/src/audio/audioProcessor.ts`) produces it.
 - `@yapper/react` imports `@yapper/core` from its `dist/`: core changes are built before react is typechecked.
