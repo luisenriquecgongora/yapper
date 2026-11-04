@@ -34,6 +34,9 @@ CHECKS: list[tuple[str, str, str, list[str]]] = [
     ("node", "react typecheck", ".", ["{yarn}", "workspace", "@yapper/react", "tsc", "--noEmit"]),
     ("node", "showcase typecheck", ".", ["{yarn}", "workspace", "yapper-showcase", "tsc", "--noEmit"]),
 ]
+# Skill folders of harnesses that do not read the shared .agents/skills: each needs a
+# symlink to every shared skill. Add a folder here when adding such a harness.
+SKILL_MIRRORS = [".claude/skills"]
 # -----------------------------------------------------------------------------
 
 
@@ -60,11 +63,49 @@ def secret_scan() -> list[tuple[str, str, str, list[str]]]:
     return [("secrets", "secret scan", ".", ["{gitleaks}", "git", "--no-banner", "--redact", "."])]
 
 
+def skill_problems(fix: bool = False) -> list[str]:
+    """Agent skills live once in .agents/skills (read by Codex, OpenCode, Cursor, ...).
+    Every SKILL_MIRRORS folder needs a symlink to each of them; fix=True creates missing ones."""
+    shared = ROOT / ".agents" / "skills"
+    problems: list[str] = []
+    for skill in sorted(p for p in shared.glob("*") if p.is_dir()):
+        md = skill / "SKILL.md"
+        text = md.read_text(encoding="utf-8") if md.is_file() else ""
+        parts = text.split("---", 2) if text.startswith("---") else []
+        front = parts[1] if len(parts) == 3 else ""
+        fields = dict(line.split(":", 1) for line in front.splitlines() if ":" in line)
+        if fields.get("name", "").strip() != skill.name:
+            problems.append(f"{md.relative_to(ROOT)}: frontmatter needs name: {skill.name}")
+        if not fields.get("description", "").strip():
+            problems.append(f"{md.relative_to(ROOT)}: frontmatter needs a description")
+        for mirror in SKILL_MIRRORS:
+            link = ROOT / mirror / skill.name
+            if fix and not link.exists() and not link.is_symlink():
+                link.parent.mkdir(parents=True, exist_ok=True)
+                os.symlink(os.path.relpath(skill, link.parent), link, target_is_directory=True)
+                print(f"   linked {mirror}/{skill.name}")
+            if not (link / "SKILL.md").is_file() or link.resolve() != skill.resolve():
+                problems.append(
+                    f"{mirror}/{skill.name}: must be a symlink to .agents/skills/{skill.name} "
+                    "(create it with --fix; on Windows enable Developer Mode and core.symlinks=true)"
+                )
+    return problems
+
+
 def main() -> int:
-    groups = sorted({group for group, *_ in CHECKS} | {"secrets"})
+    groups = sorted({group for group, *_ in CHECKS} | {"secrets", "skills"})
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--only", choices=groups)
+    parser.add_argument("--fix", action="store_true", help="create missing agent skill symlinks")
     args = parser.parse_args()
+
+    if args.only in (None, "skills"):
+        print("-- agent skills", flush=True)
+        problems = skill_problems(fix=args.fix)
+        if problems:
+            print("\n".join(problems), file=sys.stderr)
+            print("FAILED: agent skills", file=sys.stderr)
+            return 1
 
     py = python_interpreter()
     tools = {
