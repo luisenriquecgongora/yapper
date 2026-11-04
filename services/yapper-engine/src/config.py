@@ -113,8 +113,8 @@ class Settings(BaseSettings):
 
     # Security & CORS
     CORS_ORIGINS: List[str] = Field(
-        default=["*"],
-        description="List of allowed CORS origins for WebSocket and HTTP clients",
+        default=[],
+        description="Browser origins allowed besides localhost pages, e.g. https://app.example.com; '*' allows any site",
     )
 
     @property

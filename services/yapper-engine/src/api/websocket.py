@@ -14,6 +14,7 @@ from ..config import settings
 from ..engine.pipeline import TranscriptionPipeline
 from ..engine.transcription import get_transcriber
 from ..engine.vad import SileroVAD
+from .origins import origin_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,10 @@ async def audio_websocket_endpoint(
     Ingests 16kHz 16-bit PCM binary frames, applies Silero VAD gating,
     and returns formatted transcripts upon voice completion without disk storage.
     """
+    if not origin_allowed(websocket.headers.get("origin")):
+        logger.warning("Rejected WebSocket from disallowed origin")
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     logger.info("WebSocket connection established (language=%s, mode=%s, denoise=%s)", language, mode, denoise)
 
