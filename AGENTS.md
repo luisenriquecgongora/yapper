@@ -47,6 +47,7 @@ All commits must follow:
 | `services/yapper-engine` | FastAPI engine on port 8000: `GET /health`, `POST /api/transcribe`, WebSocket `/ws/audio`; pipeline in `src/engine/` (DSP, VAD, hallucination filter, formatter, model loader) |
 | `clients/hud` | Tkinter desktop HUD that records audio and transcribes through the engine or locally |
 | `scripts/` | Release builds, R2 publish/prune/model upload, `doctor.py` diagnostics, `verify.py` |
+| `.agents/skills/` | Task playbooks for any coding agent (`SKILL.md` format): `add-stt-backend`, `publish-model`, `review-change`. Read the matching one before starting such a task. Add new skills here only; `.claude/skills/<name>` is a symlink to each (Claude Code reads only that folder), and `verify.py` checks the links. |
 
 ### 7. Commands
 - Install: `yarn install`; engine: `cd services/yapper-engine && uv venv && uv pip install -r requirements.txt`
@@ -67,3 +68,12 @@ All commits must follow:
 - Never store or log raw user audio or transcripts outside the request.
 - Never read, print or commit `.env` files or API keys.
 - Never force-push or rewrite published history.
+
+### 10. Supporting another coding agent
+Instructions live only in this file and skills only in `.agents/skills/`; every agent tool gets them from there.
+- **Tool reads `AGENTS.md` and `.agents/skills/`** (Codex, OpenCode, Cursor, Copilot, Antigravity): nothing to do.
+- **Tool reads only its own files** (like Claude Code: `CLAUDE.md`, `.claude/skills/`):
+  1. Add a one-line pointer file to `AGENTS.md` in the tool's format (see `CLAUDE.md`).
+  2. Add its skills folder to `SKILL_MIRRORS` in `scripts/verify.py`, then run `python scripts/verify.py --only skills --fix` to create the symlinks.
+  3. Confirm the tool sees the skills: ask it to list its available skills (e.g. `opencode debug skill`, `codex exec`, `claude -p`, `agy -p`).
+- Never copy a skill into a tool's folder; link it, so there is one copy to keep current.
