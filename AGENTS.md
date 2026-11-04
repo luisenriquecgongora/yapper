@@ -62,6 +62,7 @@ All commits must follow:
 - `packages/server` has no `tsconfig.json`, so it is not typechecked yet.
 - Model archives are downloaded and extracted at runtime by `src/engine/model_loader.py`; never commit them (`dist/*.tar.gz` is a local release cache).
 - The loader only accepts R2 archives whose SHA-256 is in `src/engine/model_checksums.py`. `scripts/upload_models_to_r2.py` rewrites that file on every upload: commit it with the upload, because re-packing a model changes its hash. Never edit it by hand or switch TLS verification off: downloads use the OS trust store (`truststore`).
+- The engine answers browsers only from localhost pages plus `CORS_ORIGINS` (JSON list, e.g. `CORS_ORIGINS='["https://app.example.com"]'`); `src/api/origins.py` applies the same rule to the WebSocket, which CORS does not cover. Clients without an Origin header (HUD, servers) are unaffected.
 - Ruff rules are pinned in the root `ruff.toml`.
 
 ### 9. Never
