@@ -59,7 +59,7 @@ def load_fallback_env():
                 logger.warning("Could not read %s: %s", env_path, e)
 
 
-def publish_release(version: str = "1.0.0", prefix: str = "yapper", max_keep: int = 5) -> None:
+def publish_release(version: str = "1.0.0", prefix: str = "yapper", max_keep: int = 3) -> None:
     if boto3 is None:
         raise SystemExit("Missing 'boto3'. Run: pip install boto3")
 
@@ -76,11 +76,12 @@ def publish_release(version: str = "1.0.0", prefix: str = "yapper", max_keep: in
             "Missing R2 credentials! Please set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY."
         )
 
-    exe_file = DIST_DIR / "Yapper.exe"
+    # The raw Yapper.exe is already inside the zip; it goes to GitHub Releases only,
+    # to keep the shared bucket inside the R2 free tier.
     zip_file = DIST_DIR / f"Yapper-v{version}-windows-x64.zip"
     manifest_file = DIST_DIR / "version.json"
 
-    for required in (exe_file, zip_file, manifest_file):
+    for required in (zip_file, manifest_file):
         if not required.exists():
             raise FileNotFoundError(
                 f"Missing build artifact '{required.name}' in {DIST_DIR}. Run build_windows_release.py first."
@@ -105,11 +106,9 @@ def publish_release(version: str = "1.0.0", prefix: str = "yapper", max_keep: in
 
     uploads = [
         # Versioned immutable uploads (1 year cache)
-        (exe_file, f"{version_dir}/Yapper.exe", "application/octet-stream", "public, max-age=31536000, immutable"),
         (zip_file, f"{version_dir}/{zip_file.name}", "application/zip", "public, max-age=31536000, immutable"),
         (manifest_file, f"{version_dir}/version.json", "application/json", "public, max-age=86400"),
         # Canonical latest uploads (short or no-cache for auto-updates)
-        (exe_file, f"{latest_dir}/Yapper.exe", "application/octet-stream", "public, max-age=300"),
         (zip_file, f"{latest_dir}/Yapper-windows-x64.zip", "application/zip", "public, max-age=300"),
         (manifest_file, f"{latest_dir}/version.json", "application/json", "no-cache, must-revalidate"),
     ]
@@ -158,7 +157,7 @@ def publish_release(version: str = "1.0.0", prefix: str = "yapper", max_keep: in
     logger.info("• Update Manifest:    %s/%s/version.json", custom_domain, latest_dir)
     logger.info("==================================================================")
 
-    # Automatically enforce Max-5 retention rule
+    # Automatically enforce Max-3 retention rule
     if max_keep > 0:
         logger.info("Enforcing release retention policy (max %d versions)...", max_keep)
         try:
@@ -171,6 +170,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Publish Yapper Desktop release to Cloudflare R2")
     parser.add_argument("--version", default="1.0.0", help="Release version (e.g. 1.0.0)")
     parser.add_argument("--prefix", default="yapper", help="R2 bucket folder prefix (e.g. yapper)")
-    parser.add_argument("--max-keep", type=int, default=5, help="Maximum number of historical versions to retain (default: 5)")
+    parser.add_argument("--max-keep", type=int, default=3, help="Maximum number of historical versions to retain (default: 3)")
     args = parser.parse_args()
     publish_release(version=args.version, prefix=args.prefix, max_keep=args.max_keep)

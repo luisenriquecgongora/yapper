@@ -147,12 +147,10 @@ def package_and_upload(model_names: List[str]) -> None:
         size_mb = tar_path.stat().st_size / (1024 * 1024)
         logger.info("Bundle size: %0.2f MB", size_mb)
 
-        # Upload targets:
-        # 1. Canonical: yapper/models/{model_name}.tar.gz
-        # 2. Legacy / alias: whisper/{model_name}.tar.gz
+        # Upload target: yapper/models/{model_name}.tar.gz, the path model_loader tries first.
+        # The legacy whisper/ copy is no longer uploaded, to keep the bucket inside the R2 free tier.
         remote_keys = [
             f"yapper/models/{tar_filename}",
-            f"whisper/{tar_filename}",
         ]
 
         for remote_key in remote_keys:
@@ -182,7 +180,6 @@ def package_and_upload(model_names: List[str]) -> None:
         record_checksum(model_name, tar_path)
         logger.info("✅ SUCCESS: Model '%s' published to Cloudflare R2!", model_name)
         logger.info(" • Canonical URL: %s/yapper/models/%s", custom_domain, tar_filename)
-        logger.info(" • Fallback URL:  %s/whisper/%s", custom_domain, tar_filename)
 
 
 if __name__ == "__main__":

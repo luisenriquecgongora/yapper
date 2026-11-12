@@ -7,8 +7,8 @@ Canonical 'latest/' and 'models/' folders are always preserved.
 
 Usage:
     python scripts/prune_r2_releases.py --dry-run
-    python scripts/prune_r2_releases.py --prefix yapper --max-keep 5
-    python scripts/prune_r2_releases.py --prefix robot-host/stable/ --max-keep 5
+    python scripts/prune_r2_releases.py --prefix yapper --max-keep 3
+    python scripts/prune_r2_releases.py --prefix robot-host/stable/ --max-keep 3
     python scripts/prune_r2_releases.py --all
 """
 
@@ -89,7 +89,7 @@ def extract_version_tuple(prefix_name: str) -> Optional[Tuple]:
     return None
 
 
-def prune_prefix_releases(s3_client, bucket: str, base_prefix: str, max_keep: int = 5, dry_run: bool = False) -> int:
+def prune_prefix_releases(s3_client, bucket: str, base_prefix: str, max_keep: int = 3, dry_run: bool = False) -> int:
     """Enforce max_keep retention rule on base_prefix (e.g. 'yapper/' or 'robot-host/stable/')."""
     normalized_prefix = base_prefix.rstrip("/") + "/"
     logger.info("==================================================================")
@@ -173,7 +173,7 @@ def prune_prefix_releases(s3_client, bucket: str, base_prefix: str, max_keep: in
 def main():
     parser = argparse.ArgumentParser(description="Prune old releases in Cloudflare R2 keeping max 5 latest.")
     parser.add_argument("--prefix", type=str, default="yapper/", help="Prefix to prune (e.g. yapper/ or robot-host/stable/)")
-    parser.add_argument("--max-keep", type=int, default=5, help="Maximum number of latest versions to keep (default: 5)")
+    parser.add_argument("--max-keep", type=int, default=3, help="Maximum number of latest versions to keep (default: 3)")
     parser.add_argument("--all", action="store_true", help="Prune both yapper/ and robot-host/stable/")
     parser.add_argument("--dry-run", action="store_true", help="Simulate without deleting objects")
     args = parser.parse_args()
