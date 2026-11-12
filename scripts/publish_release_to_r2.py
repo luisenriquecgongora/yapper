@@ -65,11 +65,11 @@ def publish_release(version: str = "1.0.0", prefix: str = "yapper", max_keep: in
 
     load_fallback_env()
 
-    account_id = os.environ.get("R2_ACCOUNT_ID", "844652102876c425902bc592a2e072b2")
+    account_id = os.environ.get("R2_ACCOUNT_ID")
     access_key = os.environ.get("R2_DOWNLOAD_ACCESS_KEY_ID") or os.environ.get("R2_ACCESS_KEY_ID")
     secret_key = os.environ.get("R2_DOWNLOAD_SECRET_ACCESS_KEY") or os.environ.get("R2_SECRET_ACCESS_KEY")
-    bucket = os.environ.get("R2_DOWNLOAD_BUCKET") or os.environ.get("R2_BUCKET_NAME", "plaatoos-downloads")
-    custom_domain = os.environ.get("R2_CUSTOM_DOMAIN", "https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev").rstrip("/")
+    bucket = os.environ.get("R2_DOWNLOAD_BUCKET") or os.environ.get("R2_BUCKET_NAME", "luisenrique-releases")
+    custom_domain = os.environ.get("R2_CUSTOM_DOMAIN", "https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev").rstrip("/")
 
     if not all([account_id, access_key, secret_key]):
         raise SystemExit(

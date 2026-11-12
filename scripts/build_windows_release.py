@@ -121,8 +121,8 @@ def build_release(version: str = "1.0.0") -> Path:
                 "binary_sha256": exe_sha256,
                 "zip": zip_name,
                 "zip_sha256": zip_sha256,
-                "download_url": f"https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/v{version}/{zip_name}",
-                "latest_url": "https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip",
+                "download_url": f"https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev/yapper/v{version}/{zip_name}",
+                "latest_url": "https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev/yapper/latest/Yapper-windows-x64.zip",
             }
         },
         "changelog": f"Release v{version}: Tactile voice orb record button, live hotkey telemetry, and zero duplicate HUD text.",

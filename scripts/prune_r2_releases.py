@@ -59,7 +59,7 @@ def get_r2_client():
 
     load_fallback_env()
 
-    account_id = os.environ.get("R2_ACCOUNT_ID", "844652102876c425902bc592a2e072b2")
+    account_id = os.environ.get("R2_ACCOUNT_ID")
     access_key = os.environ.get("R2_DOWNLOAD_ACCESS_KEY_ID") or os.environ.get("R2_ACCESS_KEY_ID")
     secret_key = os.environ.get("R2_DOWNLOAD_SECRET_ACCESS_KEY") or os.environ.get("R2_SECRET_ACCESS_KEY")
 
@@ -179,7 +179,7 @@ def main():
     args = parser.parse_args()
 
     s3 = get_r2_client()
-    bucket = os.environ.get("R2_DOWNLOAD_BUCKET") or os.environ.get("R2_BUCKET_NAME", "plaatoos-downloads")
+    bucket = os.environ.get("R2_DOWNLOAD_BUCKET") or os.environ.get("R2_BUCKET_NAME", "luisenrique-releases")
 
     if args.all:
         prune_prefix_releases(s3, bucket, "yapper/", max_keep=args.max_keep, dry_run=args.dry_run)
