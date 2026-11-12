@@ -435,16 +435,16 @@ yarn build
 
 ## 🚀 Releases & Cloudflare R2 Retention Policy
 
-Yapper Desktop binaries and bundled model assets are published to Cloudflare R2 object storage:
+Yapper Desktop binaries and bundled model assets are published to the `luisenrique-releases` Cloudflare R2 bucket (models under `yapper/models/`). The raw `Yapper.exe` is only on GitHub Releases; R2 holds the zips and `version.json`:
 
-* **CDN Base URL**: `https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev`
-* **Canonical Latest Windows**: `https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip`
-* **Canonical Latest macOS**: `https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-macos.zip`
-* **Update Manifest**: `https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/version.json`
+* **CDN Base URL**: `https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev`
+* **Canonical Latest Windows**: `https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev/yapper/latest/Yapper-windows-x64.zip`
+* **Canonical Latest macOS**: `https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev/yapper/latest/Yapper-macos.zip`
+* **Update Manifest**: `https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev/yapper/latest/version.json`
 
 ### 🛡️ Max-5 Version Retention Rule
-To keep Cloudflare R2 storage lean and cost-efficient, an automated retention policy is enforced across release repositories (`yapper/` and `robot-host/stable/`):
-- Only the **5 most recent semantic versions** (e.g., `v1.0.0`, `v0.7.0`, `v0.6.3`...) are kept in immutable release storage.
+The bucket is shared by several projects on the 10 GB R2 free tier, so an automated retention policy is enforced across release repositories (`yapper/` and `robot-host/stable/`):
+- Only the **3 most recent semantic versions** (e.g., `v1.0.0`, `v0.7.0`, `v0.6.3`...) are kept in immutable release storage.
 - Older versions are pruned automatically during `python scripts/publish_release_to_r2.py` or via standalone execution with `python scripts/prune_r2_releases.py --all`.
 - Canonical folders (`latest/`, `latest.json`, and pre-cached `models/`) are permanently protected from deletion.
 

@@ -14,7 +14,7 @@ and only accept an archive whose SHA-256 is listed in
 1. Credentials come from the environment (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`).
    Never print them, and never read `.env` files to find them: ask the person to set them.
 2. Run `python scripts/upload_models_to_r2.py --model <name>` (or `--models a b`, `--all`). It packs
-   `dist/<name>.tar.gz` (or reuses it), uploads to `yapper/models/` and the legacy `whisper/` path, and
+   `dist/<name>.tar.gz` (or reuses it), uploads to `yapper/models/` in the `luisenrique-releases` bucket, and
    **rewrites `model_checksums.py`** with the hash of exactly what it uploaded.
 3. Commit `model_checksums.py` in the same change as the upload:
    `build(yapper-engine): publish <name> model`.
