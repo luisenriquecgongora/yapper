@@ -26,8 +26,8 @@ function parseCommitType(msg: string): { type: string; title: string; colorClass
   return { type: 'commit', title: msg, colorClass: 'bg-[#FAF6EE] text-[#594A42] border-[#D7C3AF]' };
 }
 
-const WINDOWS_RELEASE_URL = "https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-windows-x64.zip";
-const MACOS_RELEASE_URL = "https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/Yapper-macos.zip";
+const WINDOWS_RELEASE_URL = "https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev/yapper/latest/Yapper-windows-x64.zip";
+const MACOS_RELEASE_URL = "https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev/yapper/latest/Yapper-macos.zip";
 
 function WindowsIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (

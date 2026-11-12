@@ -86,7 +86,7 @@ def check_cache_dir():
 
 def check_r2_connectivity():
     import ssl
-    url = "https://pub-091afdf4a9bd47fa9b641aae923852e1.r2.dev/yapper/latest/version.json"
+    url = "https://pub-fb9de4da4f48439ebb34b3795d05ab11.r2.dev/yapper/latest/version.json"
     try:
         ctx = ssl.create_default_context()
     except Exception:
