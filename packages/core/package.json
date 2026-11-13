@@ -36,7 +36,7 @@
   "author": "Luis Enrique <luisenriquecgongora@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@huggingface/transformers": "^3.3.0 || ^4.0.0"
+    "@huggingface/transformers": "^4.3.2"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "2.1.9",
