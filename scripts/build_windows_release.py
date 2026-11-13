@@ -15,6 +15,7 @@ import logging
 import subprocess
 import sys
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(message)s")
@@ -114,7 +115,7 @@ def build_release(version: str = "1.0.0") -> Path:
     manifest = {
         "name": "Yapper",
         "version": version,
-        "release_date": "2026-10-28",
+        "release_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "platforms": {
             "windows-x64": {
                 "binary": "Yapper.exe",
