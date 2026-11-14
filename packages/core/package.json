@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "@vitest/coverage-v8": "2.1.9",
-    "typescript": "^5.4.0",
+    "typescript": "^7.0.2",
     "vitest": "^2.0.0"
   }
 }

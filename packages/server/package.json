@@ -20,6 +20,6 @@
     "@types/multer": "^2.3.0",
     "tsup": "^9.0.0",
     "tsx": "^4.7.2",
-    "typescript": "^5.4.0"
+    "typescript": "^7.0.2"
   }
 }
