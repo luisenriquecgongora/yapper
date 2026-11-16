@@ -4,7 +4,7 @@
 > **An intimate, zero-latency speech-to-text SDK running 100% on-device Whisper via WebGPU with self-healing 0ms Native Web Speech fallback.**
 > *Live interactive playground:* [**yapper.plaatoos.com**](https://yapper.plaatoos.com)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](https://opensource.org/licenses/MIT)
+[![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-blue.svg)](LICENSE)
 [![WebGPU Accelerated](https://img.shields.io/badge/WebGPU-Hardware_Accelerated-emerald.svg)](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API)
 [![Tests Passing](https://img.shields.io/badge/Tests-28_Passed-emerald.svg)](https://vitest.dev)
 [![4-bit Quantized](https://img.shields.io/badge/Quantization-4--bit_q4-amber.svg)](https://huggingface.co/onnx-community/whisper-tiny)
@@ -452,4 +452,4 @@ The bucket is shared by several projects on the 10 GB R2 free tier, so an automa
 
 ## 📄 License
 
-MIT © Luis Enrique.
+Licensed under the [PolyForm Shield License 1.0.0](LICENSE). Free for personal, internal, and non-competing commercial use. Prohibits direct commercial competition.
