@@ -11,6 +11,9 @@ updates:
     groups:
       node:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: pip
     directories: [/services/yapper-engine, /clients]
