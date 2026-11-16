@@ -32,7 +32,7 @@
     "audio"
   ],
   "author": "Luis Enrique <luisenriquecgongora@gmail.com>",
-  "license": "MIT",
+  "license": "LicenseRef-PolyForm-Shield-1.0.0",
   "peerDependencies": {
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"

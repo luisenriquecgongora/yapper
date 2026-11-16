@@ -2,7 +2,7 @@
 
 > **Zero-dependency, universal speech-to-text core running on-device WebGPU Whisper, self-healing 0ms Web Speech API, and real-time streaming agreement.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](https://opensource.org/licenses/MIT)
+[![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-blue.svg)](../../LICENSE)
 [![WebGPU Accelerated](https://img.shields.io/badge/WebGPU-Hardware_Accelerated-emerald.svg)](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API)
 [![Tests Passing](https://img.shields.io/badge/Tests-Vitest_28_Passed-emerald.svg)](https://vitest.dev)
 
@@ -159,4 +159,4 @@ await client.start();
 
 ## 📄 License
 
-MIT © Luis Enrique
+Licensed under the [PolyForm Shield License 1.0.0](../../LICENSE). Free for personal, internal, and non-competing commercial use. Prohibits direct commercial competition.

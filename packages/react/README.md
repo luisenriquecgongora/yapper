@@ -2,7 +2,7 @@
 
 > **React hooks and tactile components for Yapper universal speech-to-text.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](https://opensource.org/licenses/MIT)
+[![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-blue.svg)](../../LICENSE)
 [![React 18+](https://img.shields.io/badge/React-18%2B-blue.svg)](https://react.dev)
 
 ---
@@ -146,4 +146,4 @@ export function DictationApp() {
 
 ## 📄 License
 
-MIT © Luis Enrique
+Licensed under the [PolyForm Shield License 1.0.0](../../LICENSE). Free for personal, internal, and non-competing commercial use. Prohibits direct commercial competition.
